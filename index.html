@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Expenses">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f3f1ec">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Expenses</title>
+<style>
+:root{--bg:#f3f1ec;--card:#fff;--ink:#1c2321;--mute:#7b837f;--line:#e4e1d8;--in:#1f7a5a;--out:#c2432f;--inv:#3a5ba0;--accent:#1c2321}
+@media(prefers-color-scheme:dark){:root{--bg:#121514;--card:#1c211f;--ink:#eceee9;--mute:#8c9590;--line:#2b322f;--in:#4cc49a;--out:#ee7a66;--inv:#7f9fe0;--accent:#eceee9}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;font-variant-numeric:tabular-nums;padding-top:env(safe-area-inset-top,0)}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 6px}
+h1{font-size:30px;font-weight:700;letter-spacing:-.5px;margin:0}
+.ib{background:none;border:0;color:var(--mute);font-size:15px;padding:8px}
+main{padding:0 16px calc(110px + env(safe-area-inset-bottom,0));overflow-y:auto;height:calc(100% - 64px)}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border-radius:18px;padding:16px;margin:12px 0}
+.cur{font-size:13px;color:var(--mute);margin-bottom:2px}
+.big{font-size:36px;font-weight:700;letter-spacing:-1px}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;font-size:13px;color:var(--mute)}
+.stats b{display:block;font-size:16px;color:var(--ink);font-weight:600}
+h2{font-size:14px;color:var(--mute);font-weight:600;margin:22px 4px 6px}
+.acc{padding:12px 0;border-top:1px solid var(--line)}.acc:first-child{border:0}
+.acc small{color:var(--mute)}
+.tx{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.tx:first-child{border:0}
+.tx .t{font-weight:600}.tx small{color:var(--mute);display:block}
+.amt{font-weight:600;white-space:nowrap}.Income{color:var(--in)}.Expense{color:var(--out)}.Investment{color:var(--inv)}.Transfer{color:var(--mute)}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin:4px 0 12px;-webkit-appearance:none;appearance:none}
+label{font-size:13px;color:var(--mute)}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--bg);padding:4px;border-radius:12px;margin-bottom:14px}
+.seg button{border:0;background:none;color:var(--ink);padding:9px 0;border-radius:9px;font:inherit;font-size:14px}
+.seg button.on{background:var(--card);box-shadow:0 1px 3px #0002;font-weight:600}
+.btn{width:100%;border:0;border-radius:14px;padding:15px;font:inherit;font-weight:600;background:var(--accent);color:var(--bg)}
+.btn.alt,#runrec{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.fb{width:auto;padding:12px 16px;white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
+.chip{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:20px;padding:7px 13px;font:inherit;font-size:14px}
+.chip.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+#rs,#imp{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:5px;margin-right:8px}
+.fhead{position:sticky;top:0;z-index:2;background:var(--card);display:flex;justify-content:space-between;align-items:center;margin:-18px -18px 10px;padding:12px 10px 10px;border-bottom:1px solid var(--line)}
+.btn.del{background:none;color:var(--out);margin-top:6px}
+.bar{height:8px;background:var(--bg);border-radius:4px;margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--in);border-radius:4px}.bar i.over{background:var(--out)}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:center;background:var(--card);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom,0))}
+nav button{background:none;border:0;color:var(--mute);font:inherit;font-size:12px;padding:6px 14px}
+nav button.on{color:var(--ink);font-weight:600}
+nav .plus{width:54px;height:54px;border-radius:27px;background:var(--accent);color:var(--bg);font-size:30px;line-height:1;padding:0;margin-top:-22px;box-shadow:0 4px 14px #0003}
+.sheet{position:fixed;inset:0;background:#0006;display:none;align-items:flex-end;z-index:5}
+.sheet.on{display:flex}
+.sheet>div{background:var(--card);width:100%;max-height:92%;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom,0))}
+.sheet h3{margin:0 0 14px;font-size:20px}
+.msg{padding:30px 10px;text-align:center;color:var(--mute)}
+.err{color:var(--out)}
+.mrow{display:flex;gap:8px;align-items:center;margin:8px 0}.mrow input{margin:0}
+</style>
+</head>
+<body>
+<header><h1 id="title">Home</h1><button class="ib" id="sync">Refresh</button></header>
+<main>
+  <section id="home"></section>
+  <section id="activity">
+    <div class="mrow"><input id="q" type="search" placeholder="Search transactions"><button class="btn fb" id="fbtn">Filter</button></div><div class="cur" id="fsum" style="margin:0 4px 4px"></div>
+    <div class="card" id="txlist"></div>
+  </section>
+  <section id="budgets"></section>
+  <section id="more">
+    <div class="card"><label>Where is your data stored?</label>
+    <div class="seg" style="grid-template-columns:1fr 1fr"><button id="m_sheet">Google Sheet</button><button id="m_local">This iPhone only</button></div>
+    <div id="localtools" style="display:none">
+      <button class="btn" id="bk">Back up to Files</button>
+      <button class="btn" id="rs" style="margin-top:8px">Restore from backup file</button>
+      <button class="btn" id="imp" style="margin-top:8px">Import from my Google Sheet</button>
+      <input type="file" id="rsf" accept=".json,.txt,application/json,text/plain" style="display:none">
+      <p class="cur" id="lmsg"></p></div></div>
+    <div class="card"><label>Web app URL</label><input id="url" placeholder="https://script.google.com/macros/s/…/exec" autocapitalize="off" autocorrect="off">
+    <label>Secret key</label><input id="key" type="password" autocapitalize="off" autocorrect="off">
+    <button class="btn" id="saveurl">Save and connect</button><p class="cur" id="conn"></p></div>
+    <h2>Preferences</h2>
+    <div class="card"><label>Exchange rate: 1 OMR = ? INR</label><input id="rate" type="number" inputmode="decimal" placeholder="e.g. 215"></div>
+    <h2>Savings goals</h2><div class="card" id="goallist"></div><button class="btn" id="newgoal">New goal</button>
+    <h2>Manage</h2>
+    <div class="card"><button class="btn" id="newacc">Add account</button><button class="btn" id="newcat" style="margin-top:8px">Add category</button></div>
+    <h2>Recurring</h2>
+    <div class="card" id="reclist"></div>
+    <button class="btn" id="newrec">New recurring transaction</button>
+    <button class="btn" id="runrec" style="margin-top:8px">Create due transactions</button>
+  </section>
+</main>
+<nav>
+  <button data-tab="home" class="on">Home</button>
+  <button data-tab="activity">Activity</button>
+  <button class="plus" id="add" aria-label="Add transaction">+</button>
+  <button data-tab="budgets">Budgets</button>
+  <button data-tab="more">Settings</button>
+</nav>
+<div class="sheet" id="sheet"><div id="form"></div></div>
+
+<script>
+const $=s=>document.querySelector(s), TYPES=["Expense","Income","Investment","Transfer"];
+const S={hm:new Date().toISOString().slice(0,7),cc:"OMR",off:false,goals:JSON.parse(localStorage.getItem("goals")||"[]"),atype:{},f:{type:new Set(),acct:new Set(),atype:new Set(),cur:new Set(),cat:new Set(),from:"",to:"",min:"",max:""},accounts:[],cats:[],tx:[],bal:[],dash:null,bud:[],rec:[],month:new Date().toISOString().slice(0,7)};
+let URL_=localStorage.getItem("api")||"",KEY=localStorage.getItem("key")||"",MODE=localStorage.getItem("mode")||"sheet";
+
+/* ---------- API (POST sent as text/plain so Apps Script needs no CORS preflight) ---------- */
+async function get(action,p={}){
+  if(MODE==="local")return L.get(action);
+  const u=new window.URL(URL_);u.searchParams.set("action",action);if(KEY)u.searchParams.set("key",KEY);
+  Object.entries(p).forEach(([k,v])=>v&&u.searchParams.set(k,v));
+  const r=await(await fetch(u)).json();if(!r.success)throw new Error(r.error||"Request failed");return r;
+}
+async function post(body){
+  if(MODE==="local")return L.post(body);
+  const r=await(await fetch(URL_,{method:"POST",body:JSON.stringify({...body,key:KEY})})).json();
+  if(!r.success)throw new Error(r.error||"Request failed");return r;
+}
+
+/* ---------- helpers ---------- */
+const g=(o,k)=>o[k]!==undefined?o[k]:"";
+const tid=t=>t["Transaction ID"]||t["ID"]||Object.values(t)[0];
+const money=(n,c)=>(c||"")+" "+Number(n||0).toLocaleString(undefined,{minimumFractionDigits:c==="OMR"?3:2,maximumFractionDigits:c==="OMR"?3:2});
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const day=t=>String(g(t,"Date")).slice(0,10);
+const sign=t=>({Income:"+",Expense:"−",Investment:"−",Transfer:""}[g(t,"Type")]||"");
+
+/* ---------- load ---------- */
+function apply(r){
+  const [a,c,t,b,d,bu,rc]=r;
+  S.accounts=a.accounts.filter(x=>String(x.Active).toLowerCase()!=="false");
+  S.cats=c.categories;S.tx=t.transactions.slice().reverse();S.tx.forEach(x=>{x.Currency=String(x.Currency||"").trim().toUpperCase();x.Type=String(x.Type||"").trim()});S.bal=b.balances;S.dash=d;S.bud=bu.budgets;S.rec=rc.recurring;
+  S.atype=Object.fromEntries(a.accounts.map(x=>[x["Account Name"],x["Account Type"]||""]));render();
+}
+async function flush(){
+  const q=JSON.parse(localStorage.getItem("q")||"[]");if(!q.length)return;const rest=[];
+  for(const b of q){try{await post(b)}catch(e){if(e instanceof TypeError)rest.push(b)}}
+  localStorage.setItem("q",JSON.stringify(rest));
+}
+async function send(b){
+  try{return await post(b)}catch(e){
+    if(e instanceof TypeError&&b.action==="addTransaction"){const q=JSON.parse(localStorage.getItem("q")||"[]");q.push(b);localStorage.setItem("q",JSON.stringify(q));return{queued:true}}
+    throw e}
+}
+async function fetchAll(){
+  try{const A=await get("all");return[{accounts:A.accounts},{categories:A.categories},{transactions:A.transactions},{balances:A.balances},{},{budgets:A.budgets},{recurring:A.recurring}]}
+  catch(e){if(!/Unknown action/.test(e.message))throw e;
+    return Promise.all([get("accounts"),get("categories"),get("transactions"),get("accountBalances"),get("dashboard"),get("budgets"),get("recurring").catch(()=>({recurring:[]}))])}
+}
+async function load(){
+  if(MODE!=="local"&&!URL_){tab("more");$("#conn").textContent="Paste your Apps Script web app URL to begin.";return}
+  $("#sync").textContent="…";
+  try{
+    await flush();
+    const r=await fetchAll();
+    if(MODE!=="local")try{localStorage.setItem("cache",JSON.stringify(r))}catch(_){}
+    S.off=false;apply(r);$("#conn").textContent=MODE==="local"?"Using storage on this iPhone":"Connected";
+  }catch(e){
+    const c=localStorage.getItem("cache");
+    if(c){S.off=true;apply(JSON.parse(c));$("#conn").innerHTML='<span class="err">Offline, showing saved data ('+esc(e.message)+')</span>'}
+    else{$("#conn").innerHTML='<span class="err">'+esc(e.message)+'</span>';
+      $("#home").innerHTML='<div class="msg err">Could not load data.<br>'+esc(e.message)+'<br>Check the URL and key.</div>'}
+  }
+  $("#sync").textContent="Refresh";
+}
+
+/* ---------- render ---------- */
+function render(){home();activity();budgets();recur();goalList()}
+const PAL=["#4cc49a","#ee7a66","#7f9fe0","#e5b95c","#b08be0","#8c9590"];
+const spent=(m,cat,cu)=>S.tx.filter(t=>g(t,"Type")==="Expense"&&day(t).slice(0,7)===m&&g(t,"Category")===cat&&g(t,"Currency")===cu).reduce((s,t)=>s+Number(g(t,"Amount")),0);
+const sumM=(m,cu,ty)=>S.tx.filter(t=>day(t).slice(0,7)===m&&g(t,"Currency")===cu&&g(t,"Type")===ty).reduce((s,t)=>s+Number(g(t,"Amount")),0);
+function donut(items){
+  const tot=items.reduce((s,i)=>s+i.v,0);if(!tot)return '<div class="msg">No expenses in this period</div>';
+  const R=48,C=2*Math.PI*R;let off=0;
+  const arcs=items.map((i,k)=>{const len=i.v/tot*C,el=`<circle r="${R}" cx="60" cy="60" fill="none" stroke="${PAL[k%6]}" stroke-width="20" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`;off+=len;return el}).join("");
+  const leg=items.map((i,k)=>`<div class="row" style="font-size:14px"><span><i class="dot" style="background:${PAL[k%6]}"></i>${esc(i.n)}</span><b>${Math.round(i.v/tot*100)}%</b></div>`).join("");
+  return `<div style="display:flex;gap:16px;align-items:center"><svg viewBox="0 0 120 120" width="120">${arcs}</svg><div style="flex:1">${leg}</div></div>`;
+}
+function bars(cu){
+  let [y,mo]=(S.hm||new Date().toISOString().slice(0,7)).split("-").map(Number);const ms=[];
+  for(let i=0;i<6;i++){ms.unshift(y+"-"+String(mo).padStart(2,"0"));mo--;if(!mo){mo=12;y--}}
+  const d=ms.map(k=>({k,i:sumM(k,cu,"Income"),e:sumM(k,cu,"Expense")})),mx=Math.max(1,...d.flatMap(x=>[x.i,x.e])),h=v=>v/mx*90;
+  return `<svg viewBox="0 0 300 126" width="100%">${d.map((x,j)=>{const X=j*50+8;return `<rect x="${X}" y="${100-h(x.i)}" width="16" height="${h(x.i)}" rx="3" fill="var(--in)"/><rect x="${X+19}" y="${100-h(x.e)}" width="16" height="${h(x.e)}" rx="3" fill="var(--out)"/><text x="${X+18}" y="118" font-size="10" text-anchor="middle" fill="var(--mute)">${x.k.slice(5)}</text>`}).join("")}</svg><div class="cur"><i class="dot" style="background:var(--in)"></i>Income <i class="dot" style="background:var(--out);margin-left:12px"></i>Spending</div>`;
+}
+function home(){
+  const m=S.hm,ts=S.tx.filter(t=>!m||day(t).slice(0,7)===m),R=Number(localStorage.getItem("rate"))||0,cu=["OMR","INR"];
+  const sm=(c,ty)=>ts.filter(t=>g(t,"Currency")===c&&g(t,"Type")===ty).reduce((s,t)=>s+Number(g(t,"Amount")),0);
+  let h=(!S.accounts.length?'<div class="card msg">No accounts yet. Open Settings and tap Add account to start.</div>':"")+(S.off?'<div class="msg err" style="padding:4px">Offline, showing saved data</div>':"")+`<div class="mrow"><input type="month" id="hm" value="${m}"><button class="ib" id="hall">All time</button></div>`;
+  const net={};
+  cu.forEach(c=>{if(!S.tx.some(t=>g(t,"Currency")===c)&&!S.bal.some(b=>String(b.currency).toUpperCase()===c))return;const i=sm(c,"Income"),e=sm(c,"Expense"),v=sm(c,"Investment");const op=S.bal.filter(b=>String(b.currency).toUpperCase()===c);net[c]=m?i-e-v:op.reduce((x,b)=>x+Number(b.currentBalance||0),0);
+    h+=`<div class="card"><div class="cur">${m?"Net flow":"Net worth"}, ${c} · ${m||"all time"}</div><div class="big">${money(net[c],"")}</div>${m?"":`<div class="cur" style="margin-top:4px">Includes opening balances of ${money(op.reduce((x,b)=>x+Number(b.openingBalance||0),0),"")}</div>`}
+    <div class="stats"><span>Income<b class="Income">${money(i,"")}</b></span><span>Spent<b class="Expense">${money(e,"")}</b></span><span>Invested<b class="Investment">${money(v,"")}</b></span></div></div>`});
+  if(R&&net.OMR!==undefined&&net.INR!==undefined)h+=`<div class="card"><div class="cur">Combined, in OMR (1 OMR = ${R} INR)</div><div class="big">${money(net.OMR+net.INR/R,"")}</div></div>`;
+  const bm=m||new Date().toISOString().slice(0,7);
+  const risk=S.bud.filter(b=>b.Month===bm&&b["Budget Amount"]).map(b=>({b,sp:spent(bm,b.Category,b.Currency)})).filter(x=>x.sp/x.b["Budget Amount"]>=.8);
+  if(risk.length)h+="<h2>Budget alerts</h2><div class='card'>"+risk.map(x=>{const p=Math.round(x.sp/x.b["Budget Amount"]*100);return `<div class="acc row"><span>${esc(x.b.Category)}</span><b class="${p>100?"Expense":""}">${p}% · ${money(x.sp,"")} / ${money(x.b["Budget Amount"],x.b.Currency)}</b></div>`}).join("")+"</div>";
+  const cc=S.cc,by={};ts.filter(t=>g(t,"Type")==="Expense"&&g(t,"Currency")===cc).forEach(t=>{const k=g(t,"Category")||"Other";by[k]=(by[k]||0)+Number(g(t,"Amount"))});
+  let it=Object.entries(by).map(([n,v])=>({n,v})).sort((a,b)=>b.v-a.v);
+  if(it.length>5){const o=it.slice(5).reduce((s,x)=>s+x.v,0);it=it.slice(0,5).concat({n:"Other",v:o})}
+  h+=`<h2>Spending by category</h2><div class="card"><div class="seg" style="grid-template-columns:1fr 1fr">${cu.map(c=>`<button data-cc="${c}" class="${c===cc?"on":""}">${c}</button>`).join("")}</div>${donut(it)}</div><h2>Last 6 months, ${cc}</h2><div class="card">${bars(cc)}</div>`;
+  if(S.goals.length)h+="<h2>Goals</h2><div class='card'>"+S.goals.map(gl=>{const b=S.bal.find(x=>x.accountName===gl.a),cur=b?b.currentBalance:0,p=Math.min(100,Math.max(0,cur/gl.t*100));
+    return `<div class="acc"><div class="row"><span>${esc(gl.n)}</span><b>${Math.round(p)}%</b></div><small>${money(cur,b?b.currency:"")} of ${money(gl.t,"")}</small><div class="bar"><i style="width:${p}%"></i></div></div>`}).join("")+"</div>";
+  h+="<h2>Accounts</h2><div class='card'>"+(S.bal.map(b=>`<div class="acc row"><div>${esc(b.accountName)}<br><small>${esc(b.accountType)}</small></div><b>${money(b.currentBalance,b.currency)}</b></div>`).join("")||'<div class="msg">No accounts yet</div>')+"</div>";
+  h+="<h2>Recent</h2><div class='card'>"+txRows(S.tx.slice(0,5))+"</div>";
+  $("#home").innerHTML=h;
+  $("#hm").onchange=e=>{S.hm=e.target.value;home()};$("#hall").onclick=()=>{S.hm="";home()};
+  document.querySelectorAll("[data-cc]").forEach(b=>b.onclick=()=>{S.cc=b.dataset.cc;home()});
+}
+function txRows(list){
+  if(!list.length)return '<div class="msg">No transactions</div>';
+  return list.map(t=>{const ty=g(t,"Type"),to=g(t,"Transfer To Account");
+    return `<div class="tx" data-id="${esc(tid(t))}"><div><span class="t">${esc(g(t,"Description")||g(t,"Category")||ty)}</span>
+    <small>${day(t)} · ${esc(g(t,"Account"))}${to?" → "+esc(to):""}${g(t,"Category")?" · "+esc(g(t,"Category"))+(g(t,"Subcategory")?" › "+esc(g(t,"Subcategory")):""):""}</small></div>
+    <div class="amt ${ty}">${sign(t)}${money(g(t,"Amount"),"")}<small style="text-align:right">${esc(g(t,"Currency"))}</small></div></div>`}).join("");
+}
+function passes(t){
+  const f=S.f,d=day(t),a=Number(g(t,"Amount"));
+  if(f.type.size&&!f.type.has(g(t,"Type")))return false;
+  if(f.acct.size&&!f.acct.has(g(t,"Account")))return false;
+  if(f.atype.size&&!f.atype.has(S.atype[g(t,"Account")]||""))return false;
+  if(f.cur.size&&!f.cur.has(g(t,"Currency")))return false;
+  if(f.cat.size&&!f.cat.has(g(t,"Category")))return false;
+  if(f.from&&d<f.from)return false;if(f.to&&d>f.to)return false;
+  if(f.min!==""&&a<Number(f.min))return false;if(f.max!==""&&a>Number(f.max))return false;
+  return true;
+}
+function nFilters(){const f=S.f;return f.type.size+f.acct.size+f.atype.size+f.cur.size+f.cat.size+(f.from||f.to?1:0)+(f.min!==""||f.max!==""?1:0)}
+function filtered(){const q=$("#q").value.toLowerCase();return S.tx.filter(t=>passes(t)&&(!q||Object.values(t).join(" ").toLowerCase().includes(q)))}
+function activity(){
+  const q=$("#q").value.toLowerCase();
+  const list=filtered();
+  const n=nFilters();$("#fbtn").textContent=n?"Filter · "+n:"Filter";
+  const net={};list.forEach(t=>{const c=g(t,"Currency"),y=g(t,"Type"),v=Number(g(t,"Amount"));net[c]=net[c]||0;
+    if(y==="Income")net[c]+=v;else if(y==="Expense"||y==="Investment")net[c]-=v});
+  $("#fsum").textContent=list.length+" transactions"+(n||q?Object.entries(net).map(([c,v])=>" · net "+money(v,c)).join(""):"");
+  $("#txlist").innerHTML=txRows(list.slice(0,300));
+}
+function filterForm(){
+  const f=S.f,uniq=a=>[...new Set(a.filter(Boolean))].sort();
+  const grp=(l,k,vals)=>vals.length?`<label>${l}</label><div class="chips">${vals.map(v=>`<button class="chip ${f[k].has(v)?"on":""}" data-k="${k}" data-v="${esc(v)}">${esc(v)}</button>`).join("")}</div>`:"";
+  open_(`<div class="fhead"><button class="ib" id="fclear">Clear all</button><b>Filters</b><button class="ib" id="fdone" style="color:var(--ink);font-weight:600">Done</button></div>`+grp("Type","type",TYPES)+grp("Currency","cur",uniq(S.tx.map(t=>g(t,"Currency"))))
+   +grp("Account","acct",uniq(Object.keys(S.atype)))+grp("Category","cat",uniq(S.tx.map(t=>g(t,"Category"))))
+   +`<label>Date range</label><div class="mrow"><input type="date" id="ff" value="${f.from}"><input type="date" id="ft" value="${f.to}"></div>
+   <div class="chips"><button class="chip" data-p="month">This month</button><button class="chip" data-p="30">Last 30 days</button><button class="chip" data-p="year">This year</button></div>
+   <button class="btn" id="fexp" style="background:var(--bg);color:var(--ink);border:1px solid var(--line)">Export results (CSV)</button>`);
+  document.querySelectorAll("#form [data-k]").forEach(c=>c.onclick=()=>{const set=f[c.dataset.k],v=c.dataset.v;
+    set.has(v)?set.delete(v):set.add(v);c.classList.toggle("on",set.has(v));activity()});
+  const sync=()=>{f.from=$("#ff").value;f.to=$("#ft").value;activity()};
+  ["#ff","#ft"].forEach(i=>$(i).oninput=sync);
+  document.querySelectorAll("#form [data-p]").forEach(c=>c.onclick=()=>{
+    const td=new Date().toLocaleDateString("en-CA"),p=c.dataset.p;
+    $("#ft").value=td;$("#ff").value=p==="month"?td.slice(0,7)+"-01":p==="year"?td.slice(0,4)+"-01-01":new Date(Date.now()-30*864e5).toLocaleDateString("en-CA");sync()});
+  $("#fdone").onclick=close_;$("#fexp").onclick=()=>exportCsv(filtered());
+  $("#fclear").onclick=()=>{Object.values(f).forEach(v=>v instanceof Set&&v.clear());f.from=f.to=f.min=f.max="";document.querySelectorAll("#form .chip.on").forEach(c=>c.classList.remove("on"));$("#ff").value=$("#ft").value="";activity()};
+}
+function budgets(){
+  const rows=S.bud.filter(b=>b.Month===S.month);
+  let h=`<div class="mrow"><input type="month" id="bm" value="${S.month}"><button class="ib" id="addb">Set budget</button></div>`;
+  h+='<div class="card">'+(rows.map(b=>{
+    const spent=S.tx.filter(t=>g(t,"Type")==="Expense"&&day(t).slice(0,7)===S.month&&g(t,"Category")===b.Category&&g(t,"Currency")===b.Currency).reduce((s,t)=>s+Number(g(t,"Amount")),0);
+    const p=b["Budget Amount"]?spent/b["Budget Amount"]*100:0;
+    return `<div class="acc" data-b="${esc(b.Category)}|${b.Currency}|${b["Budget Amount"]}"><div class="row"><span>${esc(b.Category)}</span><b>${money(spent,"")} / ${money(b["Budget Amount"],b.Currency)}</b></div><div class="bar"><i class="${p>100?"over":""}" style="width:${Math.min(p,100)}%"></i></div></div>`}).join("")||'<div class="msg">No budgets for this month</div>')+"</div>";
+  $("#budgets").innerHTML=h;
+  $("#bm").onchange=e=>{S.month=e.target.value||S.month;budgets()};
+  $("#addb").onclick=()=>budgetForm();
+  document.querySelectorAll("[data-b]").forEach(el=>el.onclick=()=>{const[c,cu,a]=el.dataset.b.split("|");budgetForm({c,cu,a})});
+}
+
+/* ---------- forms ---------- */
+function open_(html){$("#form").innerHTML=html;$("#sheet").classList.add("on")}
+function close_(){$("#sheet").classList.remove("on")}
+$("#sheet").onclick=e=>{if(e.target.id==="sheet")close_()};
+
+function txForm(t){
+  const L=JSON.parse(localStorage.getItem("last")||"{}"),edit=!!t,v=k=>t?g(t,k):({Account:L.acc,Category:L.cat,Subcategory:L.sub}[k]||"");let type=edit?v("Type"):(L.type||"Expense");
+  open_(`<h3>${edit?"Edit":"New"} transaction</h3>${edit?"":tplHtml()}
+  <div class="seg">${TYPES.map(x=>`<button data-ty="${x}" class="${x===type?"on":""}">${x}</button>`).join("")}</div>
+  <label>Amount</label><input id="f_amt" type="number" inputmode="decimal" step="0.001" value="${v("Amount")}">
+  <label>Account</label><select id="f_acc">${S.accounts.map(a=>`<option ${a["Account Name"]===v("Account")?"selected":""}>${esc(a["Account Name"])} (${esc(a.Currency)})</option>`).join("")}</select>
+  <div id="f_toW"><label>To account</label><select id="f_to"><option value=""></option>${S.accounts.map(a=>`<option value="${esc(a["Account Name"])}" ${a["Account Name"]===v("Transfer To Account")?"selected":""}>${esc(a["Account Name"])}</option>`).join("")}</select></div>
+  <div id="f_catW"><label>Category</label><select id="f_cat"></select></div>
+  <div id="f_subW"><label>Subcategory</label><select id="f_sub"></select></div>
+  <label>Date</label><input id="f_date" type="date" value="${v("Date")?day(t):new Date().toLocaleDateString("en-CA")}">
+  <label>Description</label><input id="f_desc" value="${esc(v("Description"))}">
+  <label>Remarks</label><input id="f_rem" value="${esc(v("Remarks"))}">
+  <p class="err" id="f_err"></p><button class="btn" id="f_save">${edit?"Save changes":"Add transaction"}</button>
+  ${edit?'<button class="btn del" id="f_del">Delete transaction</button>':""}`);
+  const accName=()=>$("#f_acc").value.replace(/ \([A-Z]{3}\)$/,"");
+  const sync=()=>{
+    document.querySelectorAll("[data-ty]").forEach(b=>b.classList.toggle("on",b.dataset.ty===type));
+    $("#f_toW").style.display=type==="Transfer"?"":"none";$("#f_catW").style.display=type==="Transfer"?"none":"";$("#f_subW").style.display=type==="Transfer"?"none":"";
+    const opts=[...new Set(S.cats.filter(c=>String(g(c,"Type")||"Expense")===type).map(c=>g(c,"Category")))];
+    $("#f_cat").innerHTML='<option value=""></option>'+opts.map(o=>`<option ${o===v("Category")?"selected":""}>${esc(o)}</option>`).join("");
+    subSync(v("Subcategory"));
+  };
+  function subSync(sel){
+    const c=$("#f_cat").value,subs=[...new Set(S.cats.filter(x=>String(g(x,"Type")||"Expense")===type&&g(x,"Category")===c).map(x=>g(x,"Subcategory")).filter(Boolean))];
+    $("#f_sub").innerHTML='<option value=""></option>'+subs.map(o=>`<option ${o===sel?"selected":""}>${esc(o)}</option>`).join("");
+  }
+  document.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>{type=b.dataset.ty;sync()});sync();$("#f_cat").onchange=()=>subSync("");
+  document.querySelectorAll("[data-tp]").forEach(b=>b.onclick=()=>{const p=TPL[b.dataset.tp];type=p.ty;
+    const o=[...$("#f_acc").options].find(x=>x.text.replace(/ \([A-Z]{3}\)$/,"")===p.acc);if(o)$("#f_acc").value=o.value;
+    sync();$("#f_cat").value=p.cat;subSync(p.sub);$("#f_desc").value=p.desc;$("#f_amt").value=p.amt});
+  $("#f_save").onclick=async()=>{
+    const body={action:edit?"updateTransaction":"addTransaction",transactionId:edit?tid(t):undefined,type,account:accName(),
+      transferToAccount:type==="Transfer"?$("#f_to").value:"",category:type==="Transfer"?"":$("#f_cat").value,subcategory:type==="Transfer"?"":$("#f_sub").value,
+      amount:Number($("#f_amt").value),date:$("#f_date").value,description:$("#f_desc").value,remarks:$("#f_rem").value};
+    $("#f_save").disabled=true;
+    try{if(!edit)localStorage.setItem("last",JSON.stringify({acc:body.account,cat:body.category,sub:body.subcategory,type}));if(!edit){
+      const cu=(S.accounts.find(a=>a["Account Name"]===body.account)||{}).Currency||"";
+      S.tx.unshift({"Transaction ID":"tmp","Date":body.date,Type:type,Account:body.account,"Transfer To Account":body.transferToAccount,Category:body.category,Subcategory:body.subcategory,Amount:body.amount,Currency:String(cu).toUpperCase(),Description:body.description,Remarks:body.remarks});
+      close_();render();
+      send(body).then(r=>r.queued?alert("No connection. Saved on this phone and will sync when you are back online."):afterSave(body)).catch(x=>{alert("Could not save: "+x.message);load()});
+    }else{await send(body);close_();await afterSave(body)}}catch(e){$("#f_err").textContent=e.message;$("#f_save").disabled=false}
+  };
+  if(edit)$("#f_del").onclick=async()=>{if(!confirm("Delete this transaction?"))return;
+    try{await post({action:"deleteTransaction",transactionId:tid(t)});close_();await load()}catch(e){$("#f_err").textContent=e.message}};
+}
+
+function budgetForm(b){
+  const cats=[...new Set(S.cats.filter(c=>String(g(c,"Type")||"Expense")==="Expense").map(c=>g(c,"Category")))];
+  open_(`<h3>Budget for ${S.month}</h3>
+  <label>Category</label><select id="b_c">${cats.map(c=>`<option ${b&&b.c===c?"selected":""}>${esc(c)}</option>`).join("")}</select>
+  <label>Currency</label><select id="b_cu">${["OMR","INR"].map(c=>`<option ${b&&b.cu===c?"selected":""}>${c}</option>`).join("")}</select>
+  <label>Amount</label><input id="b_a" type="number" inputmode="decimal" value="${b?b.a:""}">
+  <p class="err" id="b_err"></p><button class="btn" id="b_save">Save budget</button>
+  ${b?'<button class="btn del" id="b_del">Delete budget</button>':""}`);
+  const key=()=>({month:S.month,category:$("#b_c").value,currency:$("#b_cu").value});
+  $("#b_save").onclick=async()=>{try{await post({action:"saveBudget",...key(),budgetAmount:Number($("#b_a").value)});close_();await load()}catch(e){$("#b_err").textContent=e.message}};
+  if(b)$("#b_del").onclick=async()=>{try{await post({action:"deleteBudget",...key()});close_();await load()}catch(e){$("#b_err").textContent=e.message}};
+}
+
+function recur(){
+  $("#reclist").innerHTML=S.rec.length?S.rec.map(r=>`<div class="acc row" data-r="${esc(r.recurringId)}"><div>${esc(r.description||r.category||r.type)}<br><small>${r.frequency} · next ${r.nextDate}${r.active?"":" · paused"}</small></div><b class="${r.type}">${money(r.amount,r.currency)}</b></div>`).join(""):'<div class="msg">No recurring items</div>';
+  document.querySelectorAll("[data-r]").forEach(el=>el.onclick=()=>recForm(S.rec.find(x=>x.recurringId===el.dataset.r)));
+}
+function recForm(r){
+  const e=!!r;r=r||{type:"Expense",frequency:"Monthly",active:true,nextDate:new Date().toLocaleDateString("en-CA")};
+  const opt=(l,sel)=>l.map(x=>`<option ${x===sel?"selected":""}>${esc(x)}</option>`).join("");
+  const names=S.accounts.map(a=>a["Account Name"]);
+  open_(`<h3>${e?"Edit":"New"} recurring transaction</h3>
+  <label>Type</label><select id="r_ty">${opt(TYPES,r.type)}</select>
+  <label>Amount</label><input id="r_amt" type="number" inputmode="decimal" value="${r.amount||""}">
+  <label>Account</label><select id="r_acc">${opt(names,r.account)}</select>
+  <label>To account (transfers only)</label><select id="r_to"><option></option>${opt(names,r.transferToAccount)}</select>
+  <label>Category</label><input id="r_cat" list="cl" value="${esc(r.category||"")}"><datalist id="cl">${[...new Set(S.cats.map(c=>g(c,"Category")))].map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
+  <label>Subcategory</label><input id="r_sub" value="${esc(r.subcategory||"")}">
+  <label>Description</label><input id="r_desc" value="${esc(r.description||"")}">
+  <label>Repeats</label><select id="r_fr">${opt(["Weekly","Monthly","Yearly"],r.frequency)}</select>
+  <label>Next date</label><input id="r_date" type="date" value="${r.nextDate}">
+  <label><input type="checkbox" id="r_act" ${r.active?"checked":""} style="width:auto;margin-right:8px">Active</label>
+  <p class="err" id="r_err"></p><button class="btn" id="r_save">Save recurring</button>${e?'<button class="btn del" id="r_del">Delete recurring</button>':""}`);
+  $("#r_save").onclick=async()=>{try{await post({action:"saveRecurring",recurringId:e?r.recurringId:undefined,type:$("#r_ty").value,account:$("#r_acc").value,
+    transferToAccount:$("#r_to").value,category:$("#r_cat").value,subcategory:$("#r_sub").value,amount:Number($("#r_amt").value),description:$("#r_desc").value,
+    frequency:$("#r_fr").value,nextDate:$("#r_date").value,active:$("#r_act").checked});close_();await load()}catch(x){$("#r_err").textContent=x.message}};
+  if(e)$("#r_del").onclick=async()=>{if(!confirm("Delete this recurring item?"))return;try{await post({action:"deleteRecurring",recurringId:r.recurringId});close_();await load()}catch(x){$("#r_err").textContent=x.message}};
+}
+function accForm(){
+  open_(`<h3>Add account</h3><label>Name</label><input id="a_n">
+  <label>Type</label><select id="a_t"><option>Bank</option><option>Cash</option><option>Credit Card</option><option>Wallet</option><option>Investment</option></select>
+  <label>Currency</label><select id="a_c"><option>OMR</option><option>INR</option></select>
+  <label>Opening balance</label><input id="a_b" type="number" inputmode="decimal" value="0">
+  <p class="err" id="a_err"></p><button class="btn" id="a_save">Add account</button>`);
+  $("#a_save").onclick=async()=>{try{await post({action:"addAccount",accountName:$("#a_n").value,accountType:$("#a_t").value,currency:$("#a_c").value,openingBalance:Number($("#a_b").value)});close_();await load()}catch(x){$("#a_err").textContent=x.message}};
+}
+function catForm(){
+  open_(`<h3>Add category</h3><label>Type</label><select id="c_t"><option>Expense</option><option>Income</option><option>Investment</option></select>
+  <label>Category</label><input id="c_c" list="cl2"><datalist id="cl2">${[...new Set(S.cats.map(c=>g(c,"Category")))].map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
+  <label>Subcategory (optional)</label><input id="c_s">
+  <p class="err" id="c_err"></p><button class="btn" id="c_save">Add category</button>`);
+  $("#c_save").onclick=async()=>{try{await post({action:"addCategory",type:$("#c_t").value,category:$("#c_c").value,subcategory:$("#c_s").value});close_();await load()}catch(x){$("#c_err").textContent=x.message}};
+}
+$("#newrec").onclick=()=>S.accounts.length?recForm():alert("Add an account in Settings first.");
+$("#newacc").onclick=()=>(URL_||MODE==="local")?accForm():alert("Add an account in Settings first.");
+$("#newcat").onclick=()=>(URL_||MODE==="local")?catForm():alert("Add an account in Settings first.");
+$("#runrec").onclick=async()=>{try{const r=await post({action:"processRecurring"});alert(r.message);await load()}catch(x){alert(x.message)}};
+
+let TPL=[];
+function tpls(){const m={};S.tx.slice(0,300).forEach(t=>{const d=g(t,"Description");if(!d||g(t,"Type")==="Transfer")return;const k=d+"|"+g(t,"Account");
+  m[k]=m[k]||{n:0,ty:g(t,"Type"),acc:g(t,"Account"),cat:g(t,"Category"),sub:g(t,"Subcategory"),desc:d,amt:g(t,"Amount")};m[k].n++});return Object.values(m).sort((a,b)=>b.n-a.n).slice(0,6)}
+function tplHtml(){TPL=tpls();return TPL.length?'<label>Quick add</label><div class="chips">'+TPL.map((p,i)=>`<button class="chip" data-tp="${i}">${esc(p.desc)}</button>`).join("")+"</div>":""}
+async function afterSave(b){
+  await load();
+  if(b.action!=="addTransaction"||b.type!=="Expense")return;
+  const cu=(S.accounts.find(a=>a["Account Name"]===b.account)||{}).Currency,m=String(b.date).slice(0,7);
+  const bd=S.bud.find(x=>x.Month===m&&x.Category===b.category&&x.Currency===cu);if(!bd||!bd["Budget Amount"])return;
+  const sp=spent(m,b.category,cu),p=Math.round(sp/bd["Budget Amount"]*100);
+  if(p>=80)alert(p>100?`Over budget: ${b.category} is at ${p}% (${money(sp,cu)} of ${money(bd["Budget Amount"],cu)}).`:`${b.category} budget is ${p}% used.`);
+}
+async function exportCsv(list){
+  const cols=Object.keys(S.tx[0]||{}),q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const csv=[cols.map(q).join(",")].concat(list.map(t=>cols.map(c=>q(t[c])).join(","))).join("\n");
+  const f=new File([csv],"transactions.csv",{type:"text/csv"});
+  try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});
+  else{const a=document.createElement("a");a.href=window.URL.createObjectURL(f);a.download="transactions.csv";a.click()}}catch(_){}
+}
+function goalList(){
+  $("#goallist").innerHTML=S.goals.length?S.goals.map((x,i)=>`<div class="acc row" data-g="${i}"><span>${esc(x.n)}<br><small>${esc(x.a)}</small></span><b>${money(x.t,"")}</b></div>`).join(""):'<div class="msg">No goals yet</div>';
+  document.querySelectorAll("[data-g]").forEach(el=>el.onclick=()=>goalForm(+el.dataset.g));
+}
+function goalForm(i){
+  const x=S.goals[i]||{n:"",t:"",a:""};
+  open_(`<h3>${S.goals[i]?"Edit":"New"} goal</h3><label>Name</label><input id="g_n" value="${esc(x.n)}"><label>Target amount</label><input id="g_t" type="number" inputmode="decimal" value="${x.t}">
+  <label>Tracked by account balance</label><select id="g_a">${S.accounts.map(a=>`<option ${a["Account Name"]===x.a?"selected":""}>${esc(a["Account Name"])}</option>`).join("")}</select>
+  <button class="btn" id="g_s">Save goal</button>${S.goals[i]?'<button class="btn del" id="g_d">Delete goal</button>':""}`);
+  const sv=()=>{localStorage.setItem("goals",JSON.stringify(S.goals));close_();render()};
+  $("#g_s").onclick=()=>{const o={n:$("#g_n").value.trim(),t:Number($("#g_t").value),a:$("#g_a").value};if(!o.n||!o.t)return;S.goals[i]?S.goals[i]=o:S.goals.push(o);sv()};
+  if(S.goals[i])$("#g_d").onclick=()=>{S.goals.splice(i,1);sv()};
+}
+
+/*LOCAL-START*/
+const DEFCATS=[["Food","Expense"],["Transport","Expense"],["Bills","Expense"],["Rent","Expense"],["Shopping","Expense"],["Health","Expense"],["Entertainment","Expense"],["Other","Expense"],["Salary","Income"],["Other Income","Income"],["Investments","Investment"]].map(([c,t])=>({Category:c,Subcategory:"",Type:t}));
+const DBL={load(){let d=null;try{d=JSON.parse(localStorage.getItem("db"))}catch(_){}return d||{accounts:[],categories:DEFCATS.slice(),transactions:[],budgets:[],recurring:[]}},save(d){localStorage.setItem("db",JSON.stringify(d))}};
+const gid=p=>p+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);
+function nextDate(s,f){const[y,m,d]=s.split("-").map(Number);let D;
+  if(f==="Weekly")D=new Date(y,m-1,d+7,12);
+  else if(f==="Yearly")D=new Date(y+1,m-1,Math.min(d,new Date(y+1,m,0).getDate()),12);
+  else D=new Date(y,m,Math.min(d,new Date(y,m+1,0).getDate()),12);
+  return D.toLocaleDateString("en-CA")}
+const L={
+  get(a){
+    const d=DBL.load(),bal={};
+    d.accounts.forEach(x=>bal[x["Account Name"]]={accountId:x["Account ID"],accountName:x["Account Name"],accountType:x["Account Type"],currency:String(x.Currency).toUpperCase(),openingBalance:Number(x["Opening Balance"])||0,currentBalance:Number(x["Opening Balance"])||0});
+    d.transactions.forEach(t=>{const ty=String(t.Type).toLowerCase(),n=t.Account,to=t["Transfer To Account"],am=Number(t.Amount)||0,cu=String(t.Currency).toUpperCase();
+      if(!bal[n]||am<=0||(cu&&cu!==bal[n].currency))return;
+      if(ty==="income")bal[n].currentBalance+=am;else if(ty==="expense"||ty==="investment")bal[n].currentBalance-=am;
+      else if(ty==="transfer"){bal[n].currentBalance-=am;if(bal[to]&&bal[to].currency===cu)bal[to].currentBalance+=am}});
+    return{success:true,accounts:d.accounts,categories:d.categories,transactions:d.transactions,balances:Object.values(bal),budgets:d.budgets,recurring:d.recurring};
+  },
+  post(b){
+    const d=DBL.load(),acc=n=>d.accounts.find(x=>String(x["Account Name"]).trim()===String(n||"").trim()),now=new Date().toISOString();
+    switch(b.action){
+    case"addTransaction":case"updateTransaction":{
+      const upd=b.action==="updateTransaction",type=String(b.type||"").trim(),src=acc(b.account),to=String(b.transferToAccount||"").trim(),am=Number(b.amount);
+      if(!type)throw new Error("Transaction type is required");
+      if(!src)throw new Error("Account not found: "+b.account);
+      if(!(am>0))throw new Error("Amount must be greater than zero");
+      if(type==="Transfer"){const dst=acc(to);
+        if(!dst)throw new Error("Choose a destination account");
+        if(dst===src)throw new Error("Source and destination accounts cannot be the same");
+        if(String(dst.Currency).toUpperCase()!==String(src.Currency).toUpperCase())throw new Error("Transfers must be between accounts with the same currency")}
+      const row={"Transaction ID":upd?b.transactionId:gid("TXN"),Date:b.date||new Date().toLocaleDateString("en-CA"),Type:type,Account:src["Account Name"],"Transfer To Account":type==="Transfer"?to:"",Category:b.category||"",Subcategory:b.subcategory||"",Amount:am,Currency:String(src.Currency).toUpperCase(),Description:b.description||"",Remarks:b.remarks||"","Created At":now,"Updated At":now};
+      if(upd){const i=d.transactions.findIndex(t=>String(t["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Transaction not found");row["Created At"]=d.transactions[i]["Created At"]||now;d.transactions[i]=row}
+      else d.transactions.push(row);break}
+    case"deleteTransaction":{const i=d.transactions.findIndex(t=>String(t["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Transaction not found");d.transactions.splice(i,1);break}
+    case"saveBudget":{const e=d.budgets.find(x=>x.Month===b.month&&x.Category===b.category&&x.Currency===b.currency);
+      if(!(Number(b.budgetAmount)>=0))throw new Error("Budget amount must be 0 or greater");
+      if(e)e["Budget Amount"]=Number(b.budgetAmount);else d.budgets.push({Month:b.month,Category:b.category,"Budget Amount":Number(b.budgetAmount),Currency:b.currency});break}
+    case"deleteBudget":{const i=d.budgets.findIndex(x=>x.Month===b.month&&x.Category===b.category&&x.Currency===b.currency);if(i<0)throw new Error("Budget not found");d.budgets.splice(i,1);break}
+    case"addAccount":{const n=String(b.accountName||"").trim();if(!n)throw new Error("Account name is required");if(acc(n))throw new Error("An account with this name already exists");
+      d.accounts.push({"Account ID":gid("ACC"),"Account Name":n,"Account Type":b.accountType||"Bank","Opening Balance":Number(b.openingBalance)||0,Currency:String(b.currency).toUpperCase(),Active:true});break}
+    case"addCategory":{const c=String(b.category||"").trim(),sc=String(b.subcategory||"").trim();if(!c)throw new Error("Category name is required");
+      if(d.categories.some(x=>String(x.Category).toLowerCase()===c.toLowerCase()&&String(x.Subcategory||"").toLowerCase()===sc.toLowerCase()&&x.Type===b.type))throw new Error("This category already exists");
+      d.categories.push({Category:c,Subcategory:sc,Type:b.type});break}
+    case"saveRecurring":{const a=acc(b.account);if(!a)throw new Error("Choose an account");
+      if(!(Number(b.amount)>0))throw new Error("Amount must be greater than zero");if(!b.nextDate)throw new Error("Choose a valid next date");
+      const r={recurringId:b.recurringId||gid("REC"),type:b.type,account:a["Account Name"],transferToAccount:b.transferToAccount||"",category:b.category||"",subcategory:b.subcategory||"",amount:Number(b.amount),currency:String(a.Currency).toUpperCase(),description:b.description||"",frequency:b.frequency,nextDate:b.nextDate,active:b.active!==false,lastGeneratedDate:""};
+      const i=d.recurring.findIndex(x=>x.recurringId===r.recurringId);if(i>=0){r.lastGeneratedDate=d.recurring[i].lastGeneratedDate;d.recurring[i]=r}else d.recurring.push(r);break}
+    case"deleteRecurring":d.recurring=d.recurring.filter(x=>x.recurringId!==b.recurringId);break;
+    case"processRecurring":{let n=0;const td=new Date().toLocaleDateString("en-CA");
+      d.recurring.forEach(r=>{if(!r.active)return;let k=0;
+        while(r.nextDate&&r.nextDate<=td&&k++<240){
+          if(r.nextDate!==r.lastGeneratedDate){d.transactions.push({"Transaction ID":gid("TXN"),Date:r.nextDate,Type:r.type,Account:r.account,"Transfer To Account":r.transferToAccount,Category:r.category,Subcategory:r.subcategory,Amount:r.amount,Currency:r.currency,Description:r.description+" (Recurring)",Remarks:"Generated from recurring "+r.recurringId,"Created At":now,"Updated At":now});n++;r.lastGeneratedDate=r.nextDate}
+          r.nextDate=nextDate(r.nextDate,r.frequency)}});
+      DBL.save(d);return{success:true,created:n,message:n+" recurring transaction(s) created"}}
+    default:throw new Error("Unknown action: "+b.action)}
+    DBL.save(d);return{success:true};
+  }
+};
+/*LOCAL-END*/
+async function shareFile(f){try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else{const a=document.createElement("a");a.href=window.URL.createObjectURL(f);a.download=f.name;a.click()}}catch(_){}}
+function uiMode(){
+  $("#m_local").classList.toggle("on",MODE==="local");$("#m_sheet").classList.toggle("on",MODE!=="local");
+  $("#localtools").style.display=MODE==="local"?"":"none";
+  const lb=localStorage.getItem("lastbk");$("#lmsg").textContent=lb?"Last backup: "+lb:"No backup yet. Your data lives only on this iPhone, so back up regularly.";
+}
+function setMode(m){MODE=m;localStorage.setItem("mode",m);uiMode();load()}
+$("#m_local").onclick=()=>{if(MODE==="local")return;if(!confirm("Store data only on this iPhone? Your Google Sheet stays untouched. You can import it into the app next."))return;
+  setMode("local");try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}};
+$("#m_sheet").onclick=()=>{if(MODE!=="local")return;setMode("sheet")};
+$("#bk").onclick=async()=>{await shareFile(new File([JSON.stringify(DBL.load())],"expenses-backup-"+new Date().toLocaleDateString("en-CA")+".json",{type:"text/plain"}));localStorage.setItem("lastbk",new Date().toLocaleDateString("en-CA"));uiMode()};
+$("#rs").onclick=()=>$("#rsf").click();
+$("#rsf").onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  try{const d=JSON.parse(await f.text());if(!Array.isArray(d.accounts)||!Array.isArray(d.transactions))throw new Error("This is not a valid backup file");
+    if(!confirm("Replace all data on this iPhone with this backup?"))return;
+    d.categories=d.categories||DEFCATS;d.budgets=d.budgets||[];d.recurring=d.recurring||[];DBL.save(d);await load()}catch(x){alert(x.message)}
+  e.target.value=""};
+$("#imp").onclick=async()=>{
+  if(!URL_||!KEY){alert("Enter your Google Sheet URL and key below, tap Save and connect, then try again.");return}
+  if(!confirm("Replace the data on this iPhone with a copy of your Google Sheet?"))return;
+  const m=MODE;MODE="sheet";
+  try{const r=await fetchAll();DBL.save({accounts:r[0].accounts,categories:r[1].categories,transactions:r[2].transactions,budgets:r[5].budgets,recurring:r[6].recurring});MODE=m;await load();alert("Imported "+r[2].transactions.length+" transactions.")}
+  catch(x){MODE=m;alert(x.message)}};
+
+/* ---------- navigation ---------- */
+function tab(n){
+  document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id===n));
+  document.querySelectorAll("nav [data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===n));
+  $("#title").textContent={home:"Home",activity:"Activity",budgets:"Budgets",more:"Settings"}[n];
+}
+document.querySelectorAll("nav [data-tab]").forEach(b=>b.onclick=()=>tab(b.dataset.tab));
+$("#add").onclick=()=>S.accounts.length?txForm():alert("Add an account in Settings first.");
+$("#sync").onclick=load;
+$("#q").oninput=activity;$("#fbtn").onclick=filterForm;
+document.addEventListener("click",e=>{const el=e.target.closest(".tx");if(!el)return;
+  const t=S.tx.find(x=>String(tid(x))===el.dataset.id);if(t)txForm(t)});
+$("#saveurl").onclick=()=>{URL_=$("#url").value.replace(/[\s\u200B-\u200D\uFEFF"“”]/g,"");KEY=$("#key").value.replace(/[\s\u200B-\u200D\uFEFF"“”]/g,"");
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(URL_)){$("#conn").innerHTML='<span class="err">This is not a web app URL. It must start with https://script.google.com/macros/s/ and end with /exec, with nothing after it.</span>';return}
+  localStorage.setItem("api",URL_);localStorage.setItem("key",KEY);tab("home");load()};
+$("#url").value=URL_;$("#key").value=KEY;
+$("#rate").value=localStorage.getItem("rate")||"";$("#rate").onchange=e=>{localStorage.setItem("rate",e.target.value);home()};
+$("#newgoal").onclick=()=>S.accounts.length?goalForm():alert("Add an account in Settings first.");
+const mn=document.querySelector("main");let y0=null;
+mn.addEventListener("touchstart",e=>{y0=mn.scrollTop===0?e.touches[0].clientY:null},{passive:true});
+mn.addEventListener("touchend",e=>{if(y0!==null&&e.changedTouches[0].clientY-y0>110)load();y0=null});
+let sx=null,sy=0;
+document.addEventListener("touchstart",e=>{const el=e.target.closest("#txlist .tx");sx=el?e.touches[0].clientX:null;sy=e.touches[0].clientY},{passive:true});
+document.addEventListener("touchend",async e=>{const el=e.target.closest("#txlist .tx");if(!el||sx===null)return;
+  const dx=e.changedTouches[0].clientX-sx,dy=Math.abs(e.changedTouches[0].clientY-sy);sx=null;
+  if(dx<-90&&dy<30&&confirm("Delete this transaction?")){try{await post({action:"deleteTransaction",transactionId:el.dataset.id});await load()}catch(x){alert(x.message)}}});
+window.addEventListener("online",load);
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+uiMode();
+try{const c0=localStorage.getItem("cache");if(c0&&URL_&&MODE!=="local")apply(JSON.parse(c0))}catch(_){}
+tab("home");load();
+</script>
+</body>
+</html>
