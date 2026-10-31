@@ -82,7 +82,7 @@ nav .plus{width:54px;height:54px;border-radius:27px;background:var(--acc);color:
 <main>
   <section id="home"></section>
   <section id="activity">
-    <div class="mrow"><input id="q" type="search" placeholder="Search transactions"><button class="btn fb" id="fbtn">Filter</button></div><div class="cur" id="fsum" style="margin:0 4px 4px"></div>
+    <div class="mrow"><input id="q" type="search" placeholder="Search transactions"><button class="btn fb" id="fbtn">Filter</button></div><div class="cur" id="fsum" style="margin:0 4px 4px"></div><div class="chips" id="sfc"></div>
     <div class="card" id="txlist"></div>
   </section>
   <section id="budgets"></section>
@@ -109,6 +109,9 @@ nav .plus{width:54px;height:54px;border-radius:27px;background:var(--acc);color:
     <p class="cur">Locks the app when it opens and after 30 seconds away. If you forget it, the only way back in is deleting the Home Screen app and restoring a backup.</p></div>
     <h2>IOUs</h2><div class="card" id="ioulist"></div><button class="btn" id="newiou">New IOU</button>
     <h2>Loans and EMIs</h2><div class="card" id="loanlist"></div><button class="btn" id="newloan">New loan</button>
+    <h2>Assets and investments</h2><div class="card" id="assetlist"></div><button class="btn" id="newasset">New asset</button>
+    <button class="btn" id="px" style="margin-top:8px;background:var(--bg);color:var(--ink);border:1px solid var(--line)">Refresh mutual fund NAVs</button><p class="cur" style="margin:4px 8px" id="pxmsg"></p>
+    <h2>Recently deleted</h2><div class="card" id="trashlist"></div><p class="cur" style="margin:4px 8px">Deleted transactions are kept for 30 days.</p>
     <h2>Preferences</h2>
     <div class="card"><label>Exchange rate: 1 OMR = ? INR</label><input id="rate" type="number" inputmode="decimal" placeholder="e.g. 215"></div>
     <h2>Savings goals</h2><div class="card" id="goallist"></div><button class="btn" id="newgoal">New goal</button>
@@ -132,7 +135,7 @@ nav .plus{width:54px;height:54px;border-radius:27px;background:var(--acc);color:
 
 <script>
 const $=s=>document.querySelector(s), TYPES=["Expense","Income","Investment","Transfer"];
-const S={hm:new Date().toISOString().slice(0,7),cc:"OMR",off:false,goals:JSON.parse(localStorage.getItem("goals")||"[]"),ious:JSON.parse(localStorage.getItem("ious")||"[]"),loans:JSON.parse(localStorage.getItem("loans")||"[]"),rk:new Set(),atype:{},f:{type:new Set(),acct:new Set(),atype:new Set(),cur:new Set(),cat:new Set(),from:"",to:"",min:"",max:""},accounts:[],cats:[],tx:[],bal:[],dash:null,bud:[],rec:[],month:new Date().toISOString().slice(0,7)};
+const S={hm:new Date().toISOString().slice(0,7),cc:"OMR",off:false,goals:JSON.parse(localStorage.getItem("goals")||"[]"),ious:JSON.parse(localStorage.getItem("ious")||"[]"),loans:JSON.parse(localStorage.getItem("loans")||"[]"),rk:new Set(),assets:JSON.parse(localStorage.getItem("assets")||"[]"),trash:[],atype:{},f:{type:new Set(),acct:new Set(),atype:new Set(),cur:new Set(),cat:new Set(),from:"",to:"",min:"",max:""},accounts:[],cats:[],tx:[],bal:[],dash:null,bud:[],rec:[],month:new Date().toISOString().slice(0,7)};
 let URL_=localStorage.getItem("api")||"",KEY=localStorage.getItem("key")||"",MODE=localStorage.getItem("mode")||"sheet";
 
 /* ---------- API (POST sent as text/plain so Apps Script needs no CORS preflight) ---------- */
@@ -160,7 +163,7 @@ const sign=t=>({Income:"+",Expense:"−",Investment:"−",Transfer:""}[g(t,"Type
 function apply(r){
   const [a,c,t,b,d,bu,rc]=r;
   S.accounts=a.accounts.filter(x=>String(x.Active).toLowerCase()!=="false");
-  S.cats=c.categories;S.tx=t.transactions.slice().reverse();S.tx.forEach(x=>{x.Currency=String(x.Currency||"").trim().toUpperCase();x.Type=String(x.Type||"").trim()});S.bal=b.balances;S.dash=d;S.bud=bu.budgets;S.rec=rc.recurring;
+  S.cats=c.categories;S.tx=t.transactions.slice().reverse();S.tx.forEach(x=>{x.Currency=String(x.Currency||"").trim().toUpperCase();x.Type=String(x.Type||"").trim()});S.bal=b.balances;S.dash=d;S.bud=bu.budgets;S.rec=rc.recurring;S.trash=(r[7]||{}).trash||[];
   S.atype=Object.fromEntries(a.accounts.map(x=>[x["Account Name"],x["Account Type"]||""]));render();
 }
 async function flush(){
@@ -174,7 +177,7 @@ async function send(b){
     throw e}
 }
 async function fetchAll(){
-  try{const A=await get("all");return[{accounts:A.accounts},{categories:A.categories},{transactions:A.transactions},{balances:A.balances},{},{budgets:A.budgets},{recurring:A.recurring}]}
+  try{const A=await get("all");return[{accounts:A.accounts},{categories:A.categories},{transactions:A.transactions},{balances:A.balances},{},{budgets:A.budgets},{recurring:A.recurring},{trash:A.trash||[]}]}
   catch(e){if(!/Unknown action/.test(e.message))throw e;
     return Promise.all([get("accounts"),get("categories"),get("transactions"),get("accountBalances"),get("dashboard"),get("budgets"),get("recurring").catch(()=>({recurring:[]}))])}
 }
@@ -185,7 +188,7 @@ async function load(){
     await flush();
     const r=await fetchAll();
     if(MODE!=="local")try{localStorage.setItem("cache",JSON.stringify(r))}catch(_){}
-    S.off=false;apply(r);rcOp("getAllKeys").then(k=>{S.rk=new Set(k.map(String));activity()}).catch(()=>{});$("#conn").textContent=MODE==="local"?"Using storage on this iPhone":"Connected";
+    S.off=false;apply(r);rcOp("getAllKeys").then(k=>{S.rk=new Set(k.map(String));activity()}).catch(()=>{});autoPx();$("#conn").textContent=MODE==="local"?"Using storage on this iPhone":"Connected";
   }catch(e){
     const c=localStorage.getItem("cache");
     if(c){S.off=true;apply(JSON.parse(c));$("#conn").innerHTML='<span class="err">Offline, showing saved data ('+esc(e.message)+')</span>'}
@@ -196,7 +199,7 @@ async function load(){
 }
 
 /* ---------- render ---------- */
-function render(){home();insights();activity();budgets();recur();goalList();iouList();loanList()}
+function render(){home();insights();activity();budgets();recur();goalList();iouList();loanList();assetList();trashList()}
 const PAL=["#4cc49a","#ee7a66","#7f9fe0","#e5b95c","#b08be0","#8c9590"];
 const spent=(m,cat,cu)=>S.tx.filter(t=>g(t,"Type")==="Expense"&&day(t).slice(0,7)===m&&g(t,"Category")===cat&&g(t,"Currency")===cu).reduce((s,t)=>s+Number(g(t,"Amount")),0);
 const sumM=(m,cu,ty)=>S.tx.filter(t=>day(t).slice(0,7)===m&&g(t,"Currency")===cu&&g(t,"Type")===ty).reduce((s,t)=>s+Number(g(t,"Amount")),0);
@@ -227,7 +230,7 @@ function home(){
   if(risk.length)h+="<h2>Budget alerts</h2><div class='card'>"+risk.map(x=>{const p=Math.round(x.sp/x.b["Budget Amount"]*100);return `<div class="acc row"><span>${esc(x.b.Category)}</span><b class="${p>100?"Expense":""}">${p}% · ${money(x.sp,"")} / ${money(x.b["Budget Amount"],x.b.Currency)}</b></div>`}).join("")+"</div>";
     h+=extras();if(S.goals.length)h+="<h2>Goals</h2><div class='card'>"+S.goals.map(gl=>{const b=S.bal.find(x=>x.accountName===gl.a),cur=b?b.currentBalance:0,p=Math.min(100,Math.max(0,cur/gl.t*100));
     return `<div class="acc"><div class="row"><span>${esc(gl.n)}</span><b>${Math.round(p)}%</b></div><small>${money(cur,b?b.currency:"")} of ${money(gl.t,"")}</small><div class="bar"><i style="width:${p}%"></i></div></div>`}).join("")+"</div>";
-  h+="<h2>Accounts</h2><div class='card'>"+(S.bal.map(b=>`<div class="acc row"><div>${esc(b.accountName)}<br><small>${esc(b.accountType)}</small></div><b>${money(b.currentBalance,b.currency)}</b></div>`).join("")||'<div class="msg">No accounts yet</div>')+"</div>";
+  h+="<h2>Accounts</h2><div class='card'>"+(S.bal.map(b=>`<div class="acc row" data-ac="${esc(b.accountName)}"><div>${esc(b.accountName)}<br><small>${esc(b.accountType)}</small></div><b>${money(b.currentBalance,b.currency)}</b></div>`).join("")||'<div class="msg">No accounts yet</div>')+"</div>";
   h+="<h2>Recent</h2><div class='card'>"+txRows(S.tx.slice(0,5))+"</div>";
   $("#home").innerHTML=h;
   $("#hm").onchange=e=>{S.hm=e.target.value;home();insights()};$("#hall").onclick=()=>{S.hm="";home();insights()};
@@ -252,7 +255,7 @@ function passes(t){
 }
 function nFilters(){const f=S.f;return f.type.size+f.acct.size+f.atype.size+f.cur.size+f.cat.size+(f.from||f.to?1:0)+(f.min!==""||f.max!==""?1:0)}
 function filtered(){const q=$("#q").value.toLowerCase();return S.tx.filter(t=>passes(t)&&(!q||Object.values(t).join(" ").toLowerCase().includes(q)))}
-function activity(){
+function activity(){sfChips();
   const q=$("#q").value.toLowerCase();
   const list=filtered();
   const n=nFilters();$("#fbtn").textContent=n?"Filter · "+n:"Filter";
@@ -264,20 +267,21 @@ function activity(){
 function filterForm(){
   const f=S.f,uniq=a=>[...new Set(a.filter(Boolean))].sort();
   const grp=(l,k,vals)=>vals.length?`<label>${l}</label><div class="chips">${vals.map(v=>`<button class="chip ${f[k].has(v)?"on":""}" data-k="${k}" data-v="${esc(v)}">${esc(v)}</button>`).join("")}</div>`:"";
-  open_(`<div class="fhead"><button class="ib" id="fclear">Clear all</button><b>Filters</b><button class="ib" id="fdone" style="color:var(--ink);font-weight:600">Done</button></div>`+grp("Type","type",TYPES)+grp("Currency","cur",uniq(S.tx.map(t=>g(t,"Currency"))))
+  open_(`<div class="fhead"><button class="ib" id="fclear">Clear all</button><b>Filters</b><button class="ib" id="fdone" style="color:var(--ink);font-weight:600">Done</button></div>`+(SF.length?`<label>Saved filters (tap ✕ to delete)</label><div class="chips">${SF.map((x,i)=>`<button class="chip" data-sfd="${i}">${esc(x.name)} ✕</button>`).join("")}</div>`:"")+grp("Type","type",TYPES)+grp("Currency","cur",uniq(S.tx.map(t=>g(t,"Currency"))))
    +grp("Account","acct",uniq(Object.keys(S.atype)))+grp("Category","cat",uniq(S.tx.map(t=>g(t,"Category"))))
    +`<label>Date range</label><div class="mrow"><input type="date" id="ff" value="${f.from}"><input type="date" id="ft" value="${f.to}"></div>
    <div class="chips"><button class="chip" data-p="month">This month</button><button class="chip" data-p="30">Last 30 days</button><button class="chip" data-p="year">This year</button></div>
-   <button class="btn" id="fexp" style="background:var(--bg);color:var(--ink);border:1px solid var(--line)">Export results (CSV)</button>`);
+   <button class="btn" id="fexp" style="background:var(--bg);color:var(--ink);border:1px solid var(--line)">Export results (CSV)</button><button class="btn" id="fsave" style="margin-top:8px;background:var(--bg);color:var(--ink);border:1px solid var(--line)">Save this filter</button>`);
   document.querySelectorAll("#form [data-k]").forEach(c=>c.onclick=()=>{const set=f[c.dataset.k],v=c.dataset.v;
     set.has(v)?set.delete(v):set.add(v);c.classList.toggle("on",set.has(v));activity()});
-  const sync=()=>{f.from=$("#ff").value;f.to=$("#ft").value;activity()};
+  const sync=()=>{f.rel="";f.from=$("#ff").value;f.to=$("#ft").value;activity()};
   ["#ff","#ft"].forEach(i=>$(i).oninput=sync);
   document.querySelectorAll("#form [data-p]").forEach(c=>c.onclick=()=>{
     const td=new Date().toLocaleDateString("en-CA"),p=c.dataset.p;
-    $("#ft").value=td;$("#ff").value=p==="month"?td.slice(0,7)+"-01":p==="year"?td.slice(0,4)+"-01-01":new Date(Date.now()-30*864e5).toLocaleDateString("en-CA");sync()});
+    $("#ft").value=td;$("#ff").value=p==="month"?td.slice(0,7)+"-01":p==="year"?td.slice(0,4)+"-01-01":new Date(Date.now()-30*864e5).toLocaleDateString("en-CA");sync();f.rel=p});
   $("#fdone").onclick=close_;$("#fexp").onclick=()=>exportCsv(filtered());
-  $("#fclear").onclick=()=>{Object.values(f).forEach(v=>v instanceof Set&&v.clear());f.from=f.to=f.min=f.max="";document.querySelectorAll("#form .chip.on").forEach(c=>c.classList.remove("on"));$("#ff").value=$("#ft").value="";activity()};
+  $("#fsave").onclick=()=>{const n=prompt("Name this filter");if(!n)return;SF.push({name:n,f:{type:[...f.type],acct:[...f.acct],cur:[...f.cur],cat:[...f.cat],from:f.from,to:f.to,rel:f.rel||""}});localStorage.setItem("sf",JSON.stringify(SF));filterForm();activity()};
+  $("#fclear").onclick=()=>{Object.values(f).forEach(v=>v instanceof Set&&v.clear());f.from=f.to=f.min=f.max=f.rel="";document.querySelectorAll("#form .chip.on").forEach(c=>c.classList.remove("on"));$("#ff").value=$("#ft").value="";activity()};
 }
 function budgets(){
   const rows=S.bud.filter(b=>b.Month===S.month);
@@ -304,6 +308,7 @@ function txForm(t){
   <label>Amount</label><input id="f_amt" type="number" inputmode="decimal" step="0.001" value="${v("Amount")}">
   <label>Account</label><select id="f_acc">${S.accounts.map(a=>`<option ${a["Account Name"]===v("Account")?"selected":""}>${esc(a["Account Name"])} (${esc(a.Currency)})</option>`).join("")}</select>
   <div id="f_toW"><label>To account</label><select id="f_to"><option value=""></option>${S.accounts.map(a=>`<option value="${esc(a["Account Name"])}" ${a["Account Name"]===v("Transfer To Account")?"selected":""}>${esc(a["Account Name"])}</option>`).join("")}</select></div>
+  <div id="f_xW" style="display:none"><label id="f_xl">Amount received</label><input id="f_xa" type="number" inputmode="decimal" value="${v("To Amount")||""}"></div>
   <div id="f_catW"><label>Category</label><select id="f_cat"></select></div>
   <div id="f_subW"><label>Subcategory</label><select id="f_sub"></select></div>
   <label>Date</label><input id="f_date" type="date" value="${v("Date")?day(t):new Date().toLocaleDateString("en-CA")}">
@@ -317,13 +322,16 @@ function txForm(t){
     $("#f_toW").style.display=type==="Transfer"?"":"none";$("#f_catW").style.display=type==="Transfer"?"none":"";$("#f_subW").style.display=type==="Transfer"?"none":"";
     const opts=[...new Set(S.cats.filter(c=>String(g(c,"Type")||"Expense")===type).map(c=>g(c,"Category")))];
     $("#f_cat").innerHTML='<option value=""></option>'+opts.map(o=>`<option ${o===v("Category")?"selected":""}>${esc(o)}</option>`).join("");
-    subSync(v("Subcategory"));
+    subSync(v("Subcategory"));xSync();
   };
   function subSync(sel){
     const c=$("#f_cat").value,subs=[...new Set(S.cats.filter(x=>String(g(x,"Type")||"Expense")===type&&g(x,"Category")===c).map(x=>g(x,"Subcategory")).filter(Boolean))];
     $("#f_sub").innerHTML='<option value=""></option>'+subs.map(o=>`<option ${o===sel?"selected":""}>${esc(o)}</option>`).join("");
   }
   document.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>{type=b.dataset.ty;sync()});sync();$("#f_cat").onchange=()=>subSync("");
+  function xSync(){const a=S.accounts.find(x=>x["Account Name"]===accName()),b=S.accounts.find(x=>x["Account Name"]===$("#f_to").value),on=type==="Transfer"&&a&&b&&String(a.Currency).toUpperCase()!==String(b.Currency).toUpperCase();
+    $("#f_xW").style.display=on?"":"none";if(on)$("#f_xl").textContent="Amount received in "+b.Currency+(Number($("#f_amt").value)&&Number($("#f_xa").value)?" (rate "+(Number($("#f_xa").value)/Number($("#f_amt").value)).toFixed(4)+")":"")}
+  $("#f_acc").onchange=$("#f_to").onchange=$("#f_xa").oninput=$("#f_amt").oninput=xSync;
   const rcId=String(edit?tid(t):gid("TXN"));let rc=null,rcDirty=false;
   if(MODE==="local"){
     const show=()=>{$("#f_rc").innerHTML=rc?`<img src="${rc}" style="width:100%;border-radius:14px;margin:6px 0"><button class="chip" id="f_rcx" type="button">Remove photo</button>`:"";$("#f_rcb").textContent=rc?"Replace photo":"Add photo";if(rc)$("#f_rcx").onclick=()=>{rc=null;rcDirty=true;show()}};
@@ -337,7 +345,7 @@ function txForm(t){
   $("#f_save").onclick=async()=>{
     const body={action:edit?"updateTransaction":"addTransaction",transactionId:edit?tid(t):(MODE==="local"?rcId:undefined),type,account:accName(),
       transferToAccount:type==="Transfer"?$("#f_to").value:"",category:type==="Transfer"?"":$("#f_cat").value,subcategory:type==="Transfer"?"":$("#f_sub").value,
-      amount:Number($("#f_amt").value),date:$("#f_date").value,description:$("#f_desc").value,remarks:$("#f_rem").value};
+      amount:Number($("#f_amt").value),toAmount:Number($("#f_xa").value)||undefined,date:$("#f_date").value,description:$("#f_desc").value,remarks:$("#f_rem").value};
     $("#f_save").disabled=true;
     try{if(MODE==="local"&&rcDirty){if(rc){await rcPut(rcId,rc);S.rk.add(rcId)}else{await rcDel(rcId);S.rk.delete(rcId)}}if(!edit)localStorage.setItem("last",JSON.stringify({acc:body.account,cat:body.category,sub:body.subcategory,type}));if(!edit){
       const cu=(S.accounts.find(a=>a["Account Name"]===body.account)||{}).Currency||"";
@@ -457,11 +465,11 @@ const L={
     d.transactions.forEach(t=>{const ty=String(t.Type).toLowerCase(),n=t.Account,to=t["Transfer To Account"],am=Number(t.Amount)||0,cu=String(t.Currency).toUpperCase();
       if(!bal[n]||am<=0||(cu&&cu!==bal[n].currency))return;
       if(ty==="income")bal[n].currentBalance+=am;else if(ty==="expense"||ty==="investment")bal[n].currentBalance-=am;
-      else if(ty==="transfer"){bal[n].currentBalance-=am;if(bal[to]&&bal[to].currency===cu)bal[to].currentBalance+=am}});
-    return{success:true,accounts:d.accounts,categories:d.categories,transactions:d.transactions,balances:Object.values(bal),budgets:d.budgets,recurring:d.recurring};
+      else if(ty==="transfer"){bal[n].currentBalance-=am;if(bal[to]&&(bal[to].currency===cu||t["To Amount"]))bal[to].currentBalance+=Number(t["To Amount"])||am}});
+    return{success:true,accounts:d.accounts,categories:d.categories,transactions:d.transactions,balances:Object.values(bal),budgets:d.budgets,recurring:d.recurring,trash:d.trash||[]};
   },
   post(b){
-    const d=DBL.load(),acc=n=>d.accounts.find(x=>String(x["Account Name"]).trim()===String(n||"").trim()),now=new Date().toISOString();
+    const d=DBL.load(),acc=n=>d.accounts.find(x=>String(x["Account Name"]).trim()===String(n||"").trim()),now=new Date().toISOString();d.trash=(d.trash||[]).filter(x=>{const k=Date.now()-x._del<2592e6;if(!k)rcDel(String(x["Transaction ID"])).catch(()=>{});return k});
     switch(b.action){
     case"addTransaction":case"updateTransaction":{
       const upd=b.action==="updateTransaction",type=String(b.type||"").trim(),src=acc(b.account),to=String(b.transferToAccount||"").trim(),am=Number(b.amount);
@@ -471,11 +479,11 @@ const L={
       if(type==="Transfer"){const dst=acc(to);
         if(!dst)throw new Error("Choose a destination account");
         if(dst===src)throw new Error("Source and destination accounts cannot be the same");
-        if(String(dst.Currency).toUpperCase()!==String(src.Currency).toUpperCase())throw new Error("Transfers must be between accounts with the same currency")}
-      const row={"Transaction ID":b.transactionId||gid("TXN"),Date:b.date||new Date().toLocaleDateString("en-CA"),Type:type,Account:src["Account Name"],"Transfer To Account":type==="Transfer"?to:"",Category:b.category||"",Subcategory:b.subcategory||"",Amount:am,Currency:String(src.Currency).toUpperCase(),Description:b.description||"",Remarks:b.remarks||"","Created At":now,"Updated At":now};
+        if(String(dst.Currency).toUpperCase()!==String(src.Currency).toUpperCase()&&!(Number(b.toAmount)>0))throw new Error("Enter the amount received in "+dst.Currency)}
+      const row={"Transaction ID":b.transactionId||gid("TXN"),Date:b.date||new Date().toLocaleDateString("en-CA"),Type:type,Account:src["Account Name"],"Transfer To Account":type==="Transfer"?to:"",Category:b.category||"",Subcategory:b.subcategory||"",Amount:am,Currency:String(src.Currency).toUpperCase(),Description:b.description||"",Remarks:b.remarks||"","To Amount":type==="Transfer"&&Number(b.toAmount)>0?Number(b.toAmount):"","Created At":now,"Updated At":now};
       if(upd){const i=d.transactions.findIndex(t=>String(t["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Transaction not found");row["Created At"]=d.transactions[i]["Created At"]||now;d.transactions[i]=row}
       else d.transactions.push(row);break}
-    case"deleteTransaction":{const i=d.transactions.findIndex(t=>String(t["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Transaction not found");d.transactions.splice(i,1);rcDel(String(b.transactionId)).catch(()=>{});break}
+    case"deleteTransaction":{const i=d.transactions.findIndex(t=>String(t["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Transaction not found");const[rm]=d.transactions.splice(i,1);rm._del=Date.now();d.trash.push(rm);break}
     case"saveBudget":{const e=d.budgets.find(x=>x.Month===b.month&&x.Category===b.category&&x.Currency===b.currency);
       if(!(Number(b.budgetAmount)>=0))throw new Error("Budget amount must be 0 or greater");
       if(e)e["Budget Amount"]=Number(b.budgetAmount);else d.budgets.push({Month:b.month,Category:b.category,"Budget Amount":Number(b.budgetAmount),Currency:b.currency});break}
@@ -496,6 +504,8 @@ const L={
           if(r.nextDate!==r.lastGeneratedDate){d.transactions.push({"Transaction ID":gid("TXN"),Date:r.nextDate,Type:r.type,Account:r.account,"Transfer To Account":r.transferToAccount,Category:r.category,Subcategory:r.subcategory,Amount:r.amount,Currency:r.currency,Description:r.description+" (Recurring)",Remarks:"Generated from recurring "+r.recurringId,"Created At":now,"Updated At":now});n++;r.lastGeneratedDate=r.nextDate}
           r.nextDate=nextDate(r.nextDate,r.frequency)}});
       DBL.save(d);return{success:true,created:n,message:n+" recurring transaction(s) created"}}
+    case"restoreTransaction":{const i=d.trash.findIndex(x=>String(x["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Not found");const[t]=d.trash.splice(i,1);delete t._del;d.transactions.push(t);break}
+    case"setAccountMeta":{const a=acc(b.account);if(!a)throw new Error("Account not found");a["Credit Limit"]=Number(b.limit)||"";a["Statement Day"]=Number(b.stmt)||"";a["Due Day"]=Number(b.due)||"";break}
     default:throw new Error("Unknown action: "+b.action)}
     DBL.save(d);return{success:true};
   }
@@ -511,7 +521,7 @@ function setMode(m){MODE=m;localStorage.setItem("mode",m);uiMode();load()}
 $("#m_local").onclick=()=>{if(MODE==="local")return;if(!confirm("Store data only on this iPhone? Your Google Sheet stays untouched. You can import it into the app next."))return;
   setMode("local");try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}};
 $("#m_sheet").onclick=()=>{if(MODE!=="local")return;setMode("sheet")};
-$("#bk").onclick=async()=>{await shareFile(new File([JSON.stringify(await fullBackup())],"expenses-backup-"+new Date().toLocaleDateString("en-CA")+".json",{type:"text/plain"}));localStorage.setItem("lastbk",new Date().toLocaleDateString("en-CA"));uiMode()};
+$("#bk").onclick=async()=>{await shareFile(new File([JSON.stringify(await fullBackup())],"expenses-backup-"+new Date().toLocaleDateString("en-CA")+".json",{type:"text/plain"}));localStorage.setItem("lastbk",new Date().toLocaleDateString("en-CA"));uiMode();home()};
 $("#rs").onclick=()=>$("#rsf").click();
 $("#rsf").onchange=async e=>{const f=e.target.files[0];if(!f)return;
   try{const d=JSON.parse(await f.text());if(!Array.isArray(d.accounts)||!Array.isArray(d.transactions))throw new Error("This is not a valid backup file");
@@ -532,8 +542,8 @@ function networth(cc){
   const op=S.bal.filter(b=>String(b.currency).toUpperCase()===cc).reduce((x,b)=>x+Number(b.openingBalance||0),0);
   let[y,mo]=(S.hm||new Date().toISOString().slice(0,7)).split("-").map(Number);const ms=[];
   for(let i=0;i<12;i++){ms.unshift(y+"-"+String(mo).padStart(2,"0"));mo--;if(!mo){mo=12;y--}}
-  const f=t=>({Income:1,Expense:-1,Investment:-1}[g(t,"Type")]||0)*Number(g(t,"Amount")),tc=S.tx.filter(t=>g(t,"Currency")===cc);
-  return ms.map(k=>({k,v:op+tc.filter(t=>day(t).slice(0,7)<=k).reduce((x,t)=>x+f(t),0)}));
+  const f=t=>({Income:1,Expense:-1,Investment:-1,Transfer:t["To Amount"]?-1:0}[g(t,"Type")]||0)*Number(g(t,"Amount")),tc=S.tx.filter(t=>g(t,"Currency")===cc),inc=S.tx.filter(t=>t["To Amount"]&&String((S.bal.find(b=>b.accountName===t["Transfer To Account"])||{}).currency).toUpperCase()===cc);
+  return ms.map(k=>({k,v:op+tc.filter(t=>day(t).slice(0,7)<=k).reduce((x,t)=>x+f(t),0)+inc.filter(t=>day(t).slice(0,7)<=k).reduce((x,t)=>x+Number(t["To Amount"]),0)}));
 }
 function line(pts,cc){
   const vs=pts.map(p=>p.v),mn=Math.min(...vs),r=(Math.max(...vs)-mn)||1,P=pts.map((p,i)=>[10+i*280/(pts.length-1),95-(p.v-mn)/r*80]);
@@ -566,9 +576,9 @@ function insights(){
     if(m===cur&&exp)notes.push(`On track to spend about ${money(exp/days*dim,cc)} this month.`)}
   let h=`<div class="mrow"><input type="month" id="im" value="${m}"><button class="ib" id="iall">All time</button></div><div class="seg" style="grid-template-columns:1fr 1fr">${["OMR","INR"].map(c=>`<button data-cc="${c}" class="${c===cc?"on":""}">${c}</button>`).join("")}</div>`;
   h+=card("Summary",`<div class="tiles"><div>Saved<b>${inc?Math.round((inc-exp)/inc*100)+"%":"–"}</b></div><div>Avg per day<b>${money(exp/days,"")}</b></div><div>Spent<b>${money(exp,"")}</b></div><div>Biggest expense<b>${big?money(g(big,"Amount"),""):"–"}</b>${big?esc(g(big,"Description")||g(big,"Category")):""}</div></div>`+notes.map(n=>`<div class="note">${n}</div>`).join(""));
-  h+=card("Where it goes",donut(it))+card("Top categories",hbars(cats.slice(0,6)))+card("Income vs spending, 6 months",bars(cc))+card("Net worth, 12 months",line(networth(cc),cc))+card("Spending by weekday",weekday(ex))+card("Daily spending",heat(ex,m))+'<button class="btn" id="rep" style="margin-top:14px">Share report as image</button>';
+  h+=card("Where it goes",donut(it))+card("Top categories",hbars(cats.slice(0,6)))+card("Income vs spending, 6 months",bars(cc))+card("Net worth, 12 months",line(networth(cc),cc))+card("Spending by weekday",weekday(ex))+card("Daily spending",heat(ex,m))+card("Cash flow forecast, 90 days",forecastHtml(cc))+'<button class="btn" id="yr" style="margin-top:14px;background:var(--bg);color:var(--ink);border:1px solid var(--line)">Year in review</button>'+'<button class="btn" id="rep" style="margin-top:14px">Share report as image</button>';
   $("#insights").innerHTML=h;
-  $("#rep").onclick=report;$("#im").onchange=e=>{S.hm=e.target.value;home();insights()};$("#iall").onclick=()=>{S.hm="";home();insights()};
+  $("#rep").onclick=report;$("#yr").onclick=yearForm;$("#im").onchange=e=>{S.hm=e.target.value;home();insights()};$("#iall").onclick=()=>{S.hm="";home();insights()};
   document.querySelectorAll("#insights [data-cc]").forEach(b=>b.onclick=()=>{S.cc=b.dataset.cc;insights()});
 }
 function look(){
@@ -586,8 +596,8 @@ const rcOp=async(m,...a)=>{const db=await idb;return new Promise((res,rej)=>{con
 const rcPut=(k,v)=>rcOp("put",v,String(k)),rcGet=k=>rcOp("get",String(k)),rcDel=k=>rcOp("delete",String(k));
 async function rcAll(){const ks=await rcOp("getAllKeys"),o={};for(const k of ks)o[k]=await rcGet(k);return o}
 function shrink(f){return new Promise(res=>{const im=new Image();im.onload=()=>{const sc=Math.min(1,900/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=im.width*sc;c.height=im.height*sc;c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.6))};im.src=window.URL.createObjectURL(f)})}
-async function fullBackup(){const d=DBL.load();d.goals=S.goals;d.ious=S.ious;d.loans=S.loans;try{d.receipts=await rcAll()}catch(_){}return d}
-function restoreExtras(d){["goals","ious","loans"].forEach(k=>{if(Array.isArray(d[k])){S[k]=d[k];localStorage.setItem(k,JSON.stringify(d[k]))}delete d[k]});
+async function fullBackup(){const d=DBL.load();d.goals=S.goals;d.ious=S.ious;d.loans=S.loans;d.assets=S.assets;try{d.receipts=await rcAll()}catch(_){}return d}
+function restoreExtras(d){["goals","ious","loans","assets"].forEach(k=>{if(Array.isArray(d[k])){S[k]=d[k];localStorage.setItem(k,JSON.stringify(d[k]))}delete d[k]});
   if(d.receipts)Object.entries(d.receipts).forEach(([k,v])=>rcPut(k,v));delete d.receipts}
 
 /* passcode */
@@ -625,22 +635,36 @@ function occ(from,to){
   S.loans.forEach(l=>{const s=loanState(l),st=new Date(l.start+"T12:00:00");
     for(let i=1;i<=l.months;i++){const dt=new Date(st.getFullYear(),st.getMonth()+i,Math.min(st.getDate(),28),12).toLocaleDateString("en-CA");
       if(dt>=from&&dt<=to)out.push({d:dt,r:{description:l.name+" EMI",amount:s.emi,currency:l.cur,type:"Expense"}})}});
+  S.accounts.filter(a=>a["Due Day"]).forEach(a=>{const bl=S.bal.find(x=>x.accountName===a["Account Name"]),b0=new Date(from+"T12:00:00");
+    for(let k=0;k<14;k++){const dd=new Date(b0.getFullYear(),b0.getMonth()+k,Math.min(+a["Due Day"],28),12).toLocaleDateString("en-CA");
+      if(dd>=from&&dd<=to)out.push({d:dd,k:"cc",r:{description:a["Account Name"]+" card payment",amount:Math.max(0,-(bl?bl.currentBalance:0)),currency:a.Currency,type:"Expense"}})}});
   return out.sort((a,b)=>a.d<b.d?-1:1);
 }
 function extras(){
-  let h="";const t0=new Date(),f=t0.toLocaleDateString("en-CA"),u=new Date(t0.getTime()+7*864e5).toLocaleDateString("en-CA"),due=occ(f,u);
+  let h="";
+  if(MODE==="local"){const lb=localStorage.getItem("lastbk"),dy=lb?Math.floor((Date.now()-new Date(lb+"T12:00:00"))/864e5):999;
+    if(dy>=7)h+=`<div class="card"><div class="row"><span>${lb?"Last backup "+dy+" days ago":"You have not backed up yet"}</span><button class="chip" data-act="bk">Back up now</button></div></div>`}
+  const t0=new Date(),f=t0.toLocaleDateString("en-CA"),u=new Date(t0.getTime()+7*864e5).toLocaleDateString("en-CA"),due=occ(f,u);
   if(due.length)h+="<h2>Due this week</h2><div class='card'>"+due.map(x=>`<div class="acc row"><span>${esc(x.r.description||x.r.category||x.r.type)}<br><small>${x.d}</small></span><b>${money(x.r.amount,x.r.currency)}</b></div>`).join("")+"</div>";
   const o=S.ious.filter(x=>!x.done);
   if(o.length){const t={};o.forEach(x=>{t[x.cur]=t[x.cur]||{a:0,b:0};x.dir==="owed"?t[x.cur].a+=x.amt:t[x.cur].b+=x.amt});
     h+="<h2>IOUs</h2><div class='card'>"+Object.entries(t).map(([c,v])=>`<div class="acc row"><span>${c}<br><small>owed to you · you owe</small></span><b><span class="Income">${money(v.a,"")}</span> · <span class="Expense">${money(v.b,"")}</span></b></div>`).join("")+"</div>"}
   if(S.loans.length)h+="<h2>Loans</h2><div class='card'>"+S.loans.map(l=>{const s=loanState(l);return `<div class="acc"><div class="row"><span>${esc(l.name)}</span><b>${money(s.bal,l.cur)}</b></div><small>EMI ${money(s.emi,l.cur)} · ${s.left} left · ends ${s.end}</small><div class="bar"><i style="width:${s.pct}%"></i></div></div>`}).join("")+"</div>";
+  const cards=S.accounts.filter(a=>/credit/i.test(a["Account Type"]));
+  if(cards.length)h+="<h2>Credit cards</h2><div class='card'>"+cards.map(a=>{const b=S.bal.find(x=>x.accountName===a["Account Name"])||{currentBalance:0},o=Math.max(0,-b.currentBalance),lim=Number(a["Credit Limit"])||0,dd=a["Due Day"]?nextDay(a["Due Day"]):"";
+    return `<div class="acc" data-ac="${esc(a["Account Name"])}"><div class="row"><span>${esc(a["Account Name"])}</span><b class="Expense">${money(o,a.Currency)}</b></div><small>${lim?Math.round(o/lim*100)+"% of "+money(lim,"")+" used":"Tap to set a limit and due day"}${dd?" · due "+dd:""}</small>${lim?`<div class="bar"><i class="${o>lim*.8?"over":""}" style="width:${Math.min(100,o/lim*100)}%"></i></div>`:""}</div>`}).join("")+"</div>";
+  const wl=["OMR","INR"].map(c=>{const a=S.bal.filter(b=>String(b.currency).toUpperCase()===c).reduce((x,b)=>x+b.currentBalance,0),as=S.assets.filter(z=>z.cur===c).reduce((x,z)=>x+z.value,0),l=S.loans.filter(z=>z.cur===c).reduce((x,z)=>x+loanState(z).bal,0);
+    return as||l?`<div class="acc row"><span>${c}<br><small>accounts ${money(a,"")} · assets ${money(as,"")} · loans −${money(l,"")}</small></span><b>${money(a+as-l,"")}</b></div>`:""}).join("");
+  if(wl)h+="<h2>Total wealth</h2><div class='card'>"+wl+"</div>";
+  if(S.assets.length)h+="<h2>Assets</h2><div class='card'>"+S.assets.map(a=>`<div class="acc row"><span>${esc(a.name)}<br><small>${esc(a.type)}${a.cost?" · "+(a.value>=a.cost?"+":"")+Math.round((a.value-a.cost)/a.cost*100)+"%":""}${a.code&&a.nav?" · NAV "+a.nav:""}</small></span><b>${money(a.value,a.cur)}</b></div>`).join("")+(S.assets.some(a=>a.code)?`<div class="row" style="margin-top:8px"><span class="cur">NAVs updated ${localStorage.getItem("pxAt")?new Date(+localStorage.getItem("pxAt")).toLocaleString():"never"}</span><button class="chip" data-act="px">Refresh</button></div>`:"")+"</div>";
   return h;
 }
+function nextDay(dd){const t=new Date(),c=new Date(t.getFullYear(),t.getMonth(),Math.min(+dd,28),12);if(c<new Date(t.getFullYear(),t.getMonth(),t.getDate()))c.setMonth(c.getMonth()+1);return c.toLocaleDateString("en-CA")}
 function billsCal(){
   const mm=S.month,[y,mo]=mm.split("-").map(Number),n=new Date(y,mo,0).getDate(),off=(new Date(y,mo-1,1).getDay()+6)%7,list=occ(mm+"-01",mm+"-"+String(n).padStart(2,"0")),by={};
   list.forEach(x=>by[+x.d.slice(8)]=1);let c="";for(let i=0;i<off;i++)c+="<i></i>";
   for(let d=1;d<=n;d++)c+=`<b class="hd" style="background:${by[d]?"var(--acc)":"var(--bg)"};color:${by[d]?"#fff":"var(--ink)"}">${d}</b>`;
-  return `<h2>Bills in ${mm}</h2><div class="card"><div class="heat">${c}</div>${list.map(x=>`<div class="acc row"><span>${esc(x.r.description||x.r.category||x.r.type)}<br><small>${x.d}</small></span><b>${money(x.r.amount,x.r.currency)}</b></div>`).join("")||'<div class="msg">No recurring bills or EMIs this month</div>'}</div>`;
+  return `<h2>Bills in ${mm}</h2><div class="card"><div class="heat">${c}</div><button class="btn" data-act="ics" style="margin:12px 0">Add bills to Calendar (90 days, with alerts)</button>${list.map(x=>`<div class="acc row"><span>${esc(x.r.description||x.r.category||x.r.type)}<br><small>${x.d}</small></span><b>${money(x.r.amount,x.r.currency)}</b></div>`).join("")||'<div class="msg">No recurring bills or EMIs this month</div>'}</div>`;
 }
 function iouList(){
   const o=S.ious.filter(x=>!x.done);
@@ -675,7 +699,114 @@ function loanForm(x){
     if(!o.name||!(o.principal>0)||!(o.months>0)||!o.start)return;e?Object.assign(x,o):S.loans.push(o);sv()};
   if(e)$("#l_x").onclick=()=>{S.loans=S.loans.filter(z=>z!==x);sv()};
 }
-$("#newiou").onclick=()=>iouForm();$("#newloan").onclick=()=>loanForm();
+$("#newiou").onclick=()=>iouForm();$("#newasset").onclick=()=>assetForm();$("#px").onclick=()=>refreshPrices();$("#newloan").onclick=()=>loanForm();
+
+/* saved filters */
+let SF=JSON.parse(localStorage.getItem("sf")||"[]");
+const iso=d=>d.toLocaleDateString("en-CA");
+function relDates(p){const td=iso(new Date());return[p==="month"?td.slice(0,7)+"-01":p==="year"?td.slice(0,4)+"-01-01":iso(new Date(Date.now()-30*864e5)),td]}
+function sfChips(){$("#sfc").innerHTML=SF.map((x,i)=>`<button class="chip" data-sf="${i}">${esc(x.name)}</button>`).join("")}
+function applySF(i){const x=SF[i].f,f=S.f;["type","acct","cur","cat"].forEach(k=>f[k]=new Set(x[k]));f.atype=new Set();f.min=f.max="";f.rel=x.rel;[f.from,f.to]=x.rel?relDates(x.rel):[x.from,x.to];activity()}
+
+/* account detail, reconcile, credit cards */
+const eff=(t,n)=>{const ty=g(t,"Type"),a=Number(g(t,"Amount"));if(ty==="Transfer")return(g(t,"Account")===n?-a:0)+(t["Transfer To Account"]===n?(Number(t["To Amount"])||a):0);return g(t,"Account")===n?({Income:1,Expense:-1,Investment:-1}[ty]||0)*a:0};
+function accDetail(n){
+  const b=S.bal.find(x=>x.accountName===n),a=S.accounts.find(x=>x["Account Name"]===n)||{};if(!b)return;
+  const txs=S.tx.filter(t=>g(t,"Account")===n||t["Transfer To Account"]===n),ms=[];let[y,mo]=new Date().toISOString().slice(0,7).split("-").map(Number);
+  for(let i=0;i<12;i++){ms.unshift(y+"-"+String(mo).padStart(2,"0"));mo--;if(!mo){mo=12;y--}}
+  const pts=ms.map(k=>({k,v:b.openingBalance+txs.filter(t=>day(t).slice(0,7)<=k).reduce((x,t)=>x+eff(t,n),0)})),cc=/credit/i.test(b.accountType)&&MODE==="local";
+  open_(`<h3>${esc(n)}</h3><div class="big" style="font-size:30px">${money(b.currentBalance,b.currency)}</div>${line(pts,b.currency)}
+  <label>Reconcile: your real balance right now</label><input id="rc_a" type="number" inputmode="decimal"><button class="btn" id="rc_b">Reconcile</button>
+  ${cc?`<h2>Credit card</h2><label>Credit limit</label><input id="cc_l" type="number" inputmode="decimal" value="${a["Credit Limit"]||""}"><label>Statement day (1-28)</label><input id="cc_s" type="number" value="${a["Statement Day"]||""}"><label>Payment due day (1-28)</label><input id="cc_d" type="number" value="${a["Due Day"]||""}"><button class="btn" id="cc_b">Save card details</button>`:""}
+  <h2>Recent</h2>${txRows(txs.slice(0,15))}`);
+  $("#rc_b").onclick=async()=>{const v=$("#rc_a").value;if(v==="")return;const diff=Number(v)-b.currentBalance;if(Math.abs(diff)<.0005){alert("Already matches.");return}
+    try{await post({action:"addTransaction",type:diff>0?"Income":"Expense",account:n,amount:Math.abs(diff),date:iso(new Date()),category:"Adjustment",description:"Balance reconciliation"});close_();await load()}catch(x){alert(x.message)}};
+  if(cc)$("#cc_b").onclick=async()=>{try{await post({action:"setAccountMeta",account:n,limit:$("#cc_l").value,stmt:$("#cc_s").value,due:$("#cc_d").value});close_();await load()}catch(x){alert(x.message)}};
+}
+
+/* assets, trash, calendar file, forecast, year review */
+function assetList(){
+  $("#assetlist").innerHTML=S.assets.length?S.assets.map(a=>`<div class="acc row" data-as="${a.id}"><span>${esc(a.name)}<br><small>${esc(a.type)}</small></span><b>${money(a.value,a.cur)}</b></div>`).join(""):'<div class="msg">No assets yet</div>';
+  document.querySelectorAll("[data-as]").forEach(el=>el.onclick=()=>assetForm(S.assets.find(z=>z.id===el.dataset.as)));
+}
+async function navOf(code){
+  const r=await fetch("https://api.mfapi.in/mf/"+encodeURIComponent(code)+"/latest");if(!r.ok)throw new Error("status "+r.status);
+  const j=await r.json(),d=j.data&&j.data[0];if(!d||!(Number(d.nav)>0))throw new Error("no NAV returned");return{nav:Number(d.nav),date:d.date};
+}
+async function refreshPrices(quiet){
+  const l=S.assets.filter(a=>a.code&&a.units>0);
+  if(!l.length){if(!quiet)alert("Add a Mutual fund asset with a fund and units first.");return}
+  $("#pxmsg").textContent="Updating NAVs…";let ok=0;const bad=[];
+  for(const a of l){try{const r=await navOf(a.code);a.nav=r.nav;a.navDate=r.date;a.value=+(a.units*r.nav).toFixed(2);ok++}catch(e){bad.push(a.name)}}
+  if(ok){localStorage.setItem("assets",JSON.stringify(S.assets));localStorage.setItem("pxAt",String(Date.now()))}
+  $("#pxmsg").textContent=ok?"NAVs updated "+new Date().toLocaleString()+(bad.length?". Failed: "+bad.join(", "):""):"Could not update. Check your internet connection.";
+  if(ok)render();if(!quiet&&bad.length)alert("Could not update: "+bad.join(", ")+". Check your connection or the fund.");
+}
+function autoPx(){if(navigator.onLine&&S.assets.some(a=>a.code&&a.units>0)&&Date.now()-(+localStorage.getItem("pxAt")||0)>216e5)refreshPrices(true)}
+function assetForm(x){
+  const e=!!x;x=x||{name:"",type:"Gold",cur:"OMR",cost:"",value:""};let code=x.code||"",sn=x.schemeName||"";
+  open_(`<h3>${e?"Edit":"New"} asset</h3><label>Name</label><input id="s_n" value="${esc(x.name)}"><label>Type</label><select id="s_t">${["Gold","Stocks","Mutual fund","Property","Vehicle","Savings scheme","Other"].map(t=>`<option ${t===x.type?"selected":""}>${t}</option>`).join("")}</select>
+  <label>Currency</label><select id="s_c"><option ${x.cur==="OMR"?"selected":""}>OMR</option><option ${x.cur==="INR"?"selected":""}>INR</option></select>
+  <div id="s_mf" style="display:none"><label>Find your fund (type part of its name)</label><div class="mrow"><input id="s_q" placeholder="e.g. parag parikh flexi"><button class="chip" id="s_sb" type="button">Search</button></div><div id="s_res" class="chips"></div><p class="cur" id="s_sel"></p><label>Units held</label><input id="s_u" type="number" inputmode="decimal" value="${x.units||""}"></div>
+  <label>Amount invested</label><input id="s_i" type="number" inputmode="decimal" value="${x.cost}"><label id="s_vl">Current value</label><input id="s_v" type="number" inputmode="decimal" value="${x.value}">
+  <button class="btn" id="s_s">Save</button>${e?'<button class="btn del" id="s_x">Delete</button>':""}`);
+  const sv=()=>{localStorage.setItem("assets",JSON.stringify(S.assets));close_();render()};
+  const tsync=()=>{const mf=$("#s_t").value==="Mutual fund";$("#s_mf").style.display=mf?"":"none";$("#s_vl").textContent=mf?"Current value (calculated from units × NAV once a fund is set)":"Current value";if(mf)$("#s_c").value="INR"};
+  $("#s_t").onchange=tsync;tsync();
+  const sel=()=>{$("#s_sel").textContent=code?"Selected: "+sn+" ("+code+")":""};sel();
+  $("#s_sb").onclick=async()=>{const q=$("#s_q").value.trim();if(!q)return;$("#s_res").textContent="Searching…";
+    try{const r=await fetch("https://api.mfapi.in/mf/search?q="+encodeURIComponent(q));if(!r.ok)throw new Error("status "+r.status);const l=(await r.json()).slice(0,8);
+      $("#s_res").innerHTML=l.length?l.map((z,i)=>`<button class="chip" data-r="${i}" type="button">${esc(z.schemeName)}</button>`).join(""):"No funds found";
+      document.querySelectorAll("#s_res [data-r]").forEach(b=>b.onclick=()=>{const z=l[+b.dataset.r];code=String(z.schemeCode);sn=z.schemeName;if(!$("#s_n").value)$("#s_n").value=sn;sel();$("#s_res").innerHTML=""})}
+    catch(err){$("#s_res").textContent="Search failed ("+err.message+"). Check your internet connection."}};
+  $("#s_s").onclick=async()=>{
+    const u=Number($("#s_u").value)||0,use=$("#s_t").value==="Mutual fund"&&code&&u>0;if(!use&&$("#s_v").value==="")return;
+    const o={id:e?x.id:gid("AS"),name:$("#s_n").value.trim(),type:$("#s_t").value,cur:$("#s_c").value,cost:Number($("#s_i").value)||0,value:Number($("#s_v").value)||0,code:use?code:"",schemeName:use?sn:"",units:use?u:0,nav:x.code===code?x.nav||0:0,navDate:x.code===code?x.navDate||"":""};
+    if(!o.name)return;
+    if(use){try{const r=await navOf(code);o.nav=r.nav;o.navDate=r.date;o.value=+(u*r.nav).toFixed(2);localStorage.setItem("pxAt",String(Date.now()))}catch(err){alert("Could not fetch the latest NAV now, so it was saved with the value you entered. Use Refresh when you are online.")}}
+    e?Object.assign(x,o):S.assets.push(o);sv()};
+  if(e)$("#s_x").onclick=()=>{S.assets=S.assets.filter(z=>z!==x);sv()};
+}
+function trashList(){
+  $("#trashlist").innerHTML=S.trash.length?S.trash.map(t=>`<div class="acc row"><span>${esc(g(t,"Description")||g(t,"Category")||g(t,"Type"))}<br><small>${day(t)} · ${esc(g(t,"Account"))}</small></span><span><b class="${g(t,"Type")}">${money(g(t,"Amount"),g(t,"Currency"))}</b> <button class="chip" data-rt="${esc(tid(t))}">Restore</button></span></div>`).join(""):'<div class="msg">Nothing deleted in the last 30 days</div>';
+}
+function icsText(){
+  const f=iso(new Date()),u=iso(new Date(Date.now()+90*864e5)),st=new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z",o=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Expenses//EN"];
+  occ(f,u).forEach((x,i)=>{const d=x.d.replace(/-/g,""),n=iso(new Date(new Date(x.d+"T12:00:00").getTime()+864e5)).replace(/-/g,"");
+    o.push("BEGIN:VEVENT","UID:exp"+d+i+"@local","DTSTAMP:"+st,"DTSTART;VALUE=DATE:"+d,"DTEND;VALUE=DATE:"+n,"SUMMARY:"+String((x.r.description||x.r.category||x.r.type)+" "+x.r.currency+" "+Number(x.r.amount).toFixed(2)).replace(/[,;]/g," "),
+      "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Due tomorrow","TRIGGER:-PT15H","END:VALARM","BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Due today","TRIGGER:PT9H","END:VALARM","END:VEVENT")});
+  o.push("END:VCALENDAR");return o.join("\r\n");
+}
+function forecastHtml(cc){
+  const t0=new Date(),bal=S.bal.filter(b=>String(b.currency).toUpperCase()===cc).reduce((x,b)=>x+b.currentBalance,0);
+  const ev=occ(iso(new Date(t0.getTime()+864e5)),iso(new Date(t0.getTime()+90*864e5))).filter(x=>x.k!=="cc"&&x.r.currency===cc),since=iso(new Date(t0.getTime()-60*864e5));
+  const vs=S.tx.filter(t=>g(t,"Currency")===cc&&g(t,"Type")==="Expense"&&day(t)>=since&&!/Recurring/.test(g(t,"Description"))).reduce((x,t)=>x+Number(g(t,"Amount")),0)/60;
+  let b=bal,low={v:bal,d:iso(t0)};const pts=[{k:iso(t0).slice(5),v:b}],at={};
+  for(let d=1;d<=90;d++){const ds=iso(new Date(t0.getTime()+d*864e5));b-=vs;ev.filter(x=>x.d===ds).forEach(x=>{b+=({Income:1,Expense:-1,Investment:-1}[x.r.type]||0)*Number(x.r.amount)});
+    if(b<low.v)low={v:b,d:ds};if(d%30===0)at[d]=b;if(d%3===0)pts.push({k:ds.slice(5),v:b})}
+  return line(pts,cc)+`<div class="note">In 30 days ${money(at[30],cc)} · 60 days ${money(at[60],cc)} · 90 days ${money(at[90],cc)}</div><div class="note">Lowest point: ${money(low.v,cc)} on ${low.d}</div><div class="note" style="color:var(--mute)">Assumes your 60-day average everyday spending of ${money(vs,cc)} a day, plus recurring items and loan EMIs.</div>`;
+}
+function yearForm(){
+  const Y=(S.hm||new Date().toISOString().slice(0,7)).slice(0,4);let h=`<h3>Year in review ${Y}</h3>`;
+  ["OMR","INR"].forEach(c=>{const ls=S.tx.filter(t=>g(t,"Currency")===c&&day(t).startsWith(Y));if(!ls.length)return;
+    const sm=(l,ty)=>l.filter(t=>g(t,"Type")===ty).reduce((x,t)=>x+Number(g(t,"Amount")),0);
+    const mo=[...Array(12)].map((_,i)=>{const k=Y+"-"+String(i+1).padStart(2,"0"),l=ls.filter(t=>day(t).slice(0,7)===k);return{k,i:sm(l,"Income"),e:sm(l,"Expense")}}).filter(x=>x.i||x.e);
+    const inc=sm(ls,"Income"),exp=sm(ls,"Expense"),best=mo.reduce((a,x)=>x.i-x.e>a.i-a.e?x:a,mo[0]||{k:"–",i:0,e:0}),worst=mo.reduce((a,x)=>x.e>a.e?x:a,mo[0]||{k:"–",i:0,e:0}),by={};
+    ls.filter(t=>g(t,"Type")==="Expense").forEach(t=>{const k=g(t,"Category")||"Other";by[k]=(by[k]||0)+Number(g(t,"Amount"))});
+    const top=Object.entries(by).map(([n,v])=>({n,v})).sort((a,b)=>b.v-a.v).slice(0,5);
+    h+=`<h2>${c}</h2><div class="tiles"><div>Income<b>${money(inc,"")}</b></div><div>Spent<b>${money(exp,"")}</b></div><div>Saved<b>${inc?Math.round((inc-exp)/inc*100)+"%":"–"}</b></div><div>Transactions<b>${ls.length}</b></div><div>Best month<b>${best.k.slice(5)}</b>net ${money(best.i-best.e,"")}</div><div>Highest spending<b>${worst.k.slice(5)}</b>${money(worst.e,"")}</div></div>${hbars(top)}`});
+  open_(h+'<button class="btn" id="yx" style="margin-top:14px">Close</button>');$("#yx").onclick=close_;
+}
+document.addEventListener("click",async e=>{
+  const q=z=>e.target.closest(z);let el;
+  if(q("[data-act=bk]"))$("#bk").click();
+  else if(q("[data-act=px]"))refreshPrices();
+  else if(q("[data-act=ics]"))shareFile(new File([icsText()],"bills.ics",{type:"text/calendar"}));
+  else if(el=q("[data-ac]"))accDetail(el.dataset.ac);
+  else if(el=q("[data-sf]"))applySF(+el.dataset.sf);
+  else if(el=q("[data-sfd]")){SF.splice(+el.dataset.sfd,1);localStorage.setItem("sf",JSON.stringify(SF));filterForm();activity()}
+  else if(el=q("[data-rt]")){try{await post({action:"restoreTransaction",transactionId:el.dataset.rt});await load()}catch(x){alert(x.message)}}
+});
 
 /* month report image */
 async function report(){
