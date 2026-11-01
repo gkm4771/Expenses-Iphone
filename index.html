@@ -40,7 +40,7 @@ h2{font-size:13px;color:var(--mute);font-weight:650;margin:24px 6px 6px;text-tra
 .acc{padding:13px 0;border-top:1px solid var(--line)}.acc:first-child{border:0}.acc small{color:var(--mute)}
 .tx{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid var(--line)}.tx:first-child{border:0}
 .tx .t{font-weight:600}.tx small{color:var(--mute);display:block}
-.amt{font-weight:650;white-space:nowrap}.Income{color:var(--in)}.Expense{color:var(--out)}.Investment{color:var(--inv)}.Transfer{color:var(--mute)}
+.amt{font-weight:650;white-space:nowrap}.Income,.Redemption{color:var(--in)}.Expense{color:var(--out)}.Investment{color:var(--inv)}.Transfer{color:var(--mute)}
 input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:13px;margin:4px 0 12px;-webkit-appearance:none;appearance:none}
 label{font-size:13px;color:var(--mute)}
 .seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--bg);padding:4px;border-radius:14px;margin-bottom:14px}
@@ -72,6 +72,7 @@ nav .plus{width:54px;height:54px;border-radius:27px;background:var(--acc);color:
 .heat{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.heat i{display:block}
 .hd{aspect-ratio:1;border-radius:9px;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:500}
 .note{padding:6px 0;font-size:14px}
+.s5{grid-template-columns:repeat(5,1fr)}.s5 button{font-size:11.5px;padding:10px 0}
 #lock{position:fixed;inset:0;z-index:20;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;gap:26px}
 .pad{display:grid;grid-template-columns:repeat(3,76px);gap:14px}.pad button{height:76px;border-radius:38px;border:0;background:var(--card);color:var(--ink);font-size:26px;box-shadow:var(--shadow)}
 .pdots{display:flex;gap:16px}.pdots i{width:15px;height:15px;border-radius:8px;border:2px solid var(--acc)}.pdots i.f{background:var(--acc)}
@@ -134,7 +135,7 @@ nav .plus{width:54px;height:54px;border-radius:27px;background:var(--acc);color:
 <div id="lock"></div>
 
 <script>
-const $=s=>document.querySelector(s), TYPES=["Expense","Income","Investment","Transfer"];
+const $=s=>document.querySelector(s), TYPES=["Expense","Income","Investment","Redemption","Transfer"];
 const S={hm:new Date().toISOString().slice(0,7),cc:"OMR",off:false,goals:JSON.parse(localStorage.getItem("goals")||"[]"),ious:JSON.parse(localStorage.getItem("ious")||"[]"),loans:JSON.parse(localStorage.getItem("loans")||"[]"),rk:new Set(),assets:JSON.parse(localStorage.getItem("assets")||"[]"),trash:[],atype:{},f:{type:new Set(),acct:new Set(),atype:new Set(),cur:new Set(),cat:new Set(),from:"",to:"",min:"",max:""},accounts:[],cats:[],tx:[],bal:[],dash:null,bud:[],rec:[],month:new Date().toISOString().slice(0,7)};
 let URL_=localStorage.getItem("api")||"",KEY=localStorage.getItem("key")||"",MODE=localStorage.getItem("mode")||"sheet";
 
@@ -157,7 +158,7 @@ const tid=t=>t["Transaction ID"]||t["ID"]||Object.values(t)[0];
 const money=(n,c)=>(c||"")+" "+Number(n||0).toLocaleString(undefined,{minimumFractionDigits:c==="OMR"?3:2,maximumFractionDigits:c==="OMR"?3:2});
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const day=t=>String(g(t,"Date")).slice(0,10);
-const sign=t=>({Income:"+",Expense:"−",Investment:"−",Transfer:""}[g(t,"Type")]||"");
+const sign=t=>({Income:"+",Expense:"−",Investment:"−",Redemption:"+",Transfer:""}[g(t,"Type")]||"");
 
 /* ---------- load ---------- */
 function apply(r){
@@ -221,7 +222,7 @@ function home(){
   const sm=(c,ty)=>ts.filter(t=>g(t,"Currency")===c&&g(t,"Type")===ty).reduce((s,t)=>s+Number(g(t,"Amount")),0);
   let h=(!S.accounts.length?'<div class="card msg">No accounts yet. Open Settings and tap Add account to start.</div>':"")+(S.off?'<div class="msg err" style="padding:4px">Offline, showing saved data</div>':"")+`<div class="mrow"><input type="month" id="hm" value="${m}"><button class="ib" id="hall">All time</button></div>`;
   const net={};
-  cu.forEach(c=>{if(!S.tx.some(t=>g(t,"Currency")===c)&&!S.bal.some(b=>String(b.currency).toUpperCase()===c))return;const i=sm(c,"Income"),e=sm(c,"Expense"),v=sm(c,"Investment");const op=S.bal.filter(b=>String(b.currency).toUpperCase()===c);net[c]=m?i-e-v:op.reduce((x,b)=>x+Number(b.currentBalance||0),0);
+  cu.forEach(c=>{if(!S.tx.some(t=>g(t,"Currency")===c)&&!S.bal.some(b=>String(b.currency).toUpperCase()===c))return;const i=sm(c,"Income"),e=sm(c,"Expense"),v=sm(c,"Investment")-sm(c,"Redemption");const op=S.bal.filter(b=>String(b.currency).toUpperCase()===c);net[c]=m?i-e-v:op.reduce((x,b)=>x+Number(b.currentBalance||0),0);
     h+=`<div class="card net"><div class="cur">${m?"Net flow":"Net worth"}, ${c} · ${m||"all time"}</div><div class="big">${money(net[c],"")}</div>${m?"":`<div class="cur" style="margin-top:4px">Includes opening balances of ${money(op.reduce((x,b)=>x+Number(b.openingBalance||0),0),"")}</div>`}
     <div class="stats"><span>Income<b class="Income">${money(i,"")}</b></span><span>Spent<b class="Expense">${money(e,"")}</b></span><span>Invested<b class="Investment">${money(v,"")}</b></span></div></div>`});
   if(R&&net.OMR!==undefined&&net.INR!==undefined)h+=`<div class="card"><div class="cur">Combined, in OMR (1 OMR = ${R} INR)</div><div class="big">${money(net.OMR+net.INR/R,"")}</div></div>`;
@@ -239,7 +240,7 @@ function txRows(list){
   if(!list.length)return '<div class="msg">No transactions</div>';
   return list.map(t=>{const ty=g(t,"Type"),to=g(t,"Transfer To Account");
     return `<div class="tx" data-id="${esc(tid(t))}"><div><span class="t">${esc(g(t,"Description")||g(t,"Category")||ty)}${S.rk.has(String(tid(t)))?" 📎":""}</span>
-    <small>${day(t)} · ${esc(g(t,"Account"))}${to?" → "+esc(to):""}${g(t,"Category")?" · "+esc(g(t,"Category"))+(g(t,"Subcategory")?" › "+esc(g(t,"Subcategory")):""):""}</small></div>
+    <small>${day(t)} · ${esc(g(t,"Account"))}${to?" → "+esc(to):""}${g(t,"Category")?" · "+esc(g(t,"Category"))+(g(t,"Subcategory")?" › "+esc(g(t,"Subcategory")):""):""}${g(t,"Units")?" · "+g(t,"Units")+(t["Units Est"]?"~":"")+" units":""}</small></div>
     <div class="amt ${ty}">${sign(t)}${money(g(t,"Amount"),"")}<small style="text-align:right">${esc(g(t,"Currency"))}</small></div></div>`}).join("");
 }
 function passes(t){
@@ -304,13 +305,14 @@ $("#sheet").onclick=e=>{if(e.target.id==="sheet")close_()};
 function txForm(t){
   const L=JSON.parse(localStorage.getItem("last")||"{}"),edit=!!t,v=k=>t?g(t,k):({Account:L.acc,Category:L.cat,Subcategory:L.sub}[k]||"");let type=edit?v("Type"):(L.type||"Expense");
   open_(`<h3>${edit?"Edit":"New"} transaction</h3>${edit?"":tplHtml()}
-  <div class="seg">${TYPES.map(x=>`<button data-ty="${x}" class="${x===type?"on":""}">${x}</button>`).join("")}</div>
+  <div class="seg s5">${TYPES.map(x=>`<button data-ty="${x}" class="${x===type?"on":""}">${x==="Redemption"?"Redeem":x}</button>`).join("")}</div>
   <label>Amount</label><input id="f_amt" type="number" inputmode="decimal" step="0.001" value="${v("Amount")}">
   <label>Account</label><select id="f_acc">${S.accounts.map(a=>`<option ${a["Account Name"]===v("Account")?"selected":""}>${esc(a["Account Name"])} (${esc(a.Currency)})</option>`).join("")}</select>
   <div id="f_toW"><label>To account</label><select id="f_to"><option value=""></option>${S.accounts.map(a=>`<option value="${esc(a["Account Name"])}" ${a["Account Name"]===v("Transfer To Account")?"selected":""}>${esc(a["Account Name"])}</option>`).join("")}</select></div>
   <div id="f_xW" style="display:none"><label id="f_xl">Amount received</label><input id="f_xa" type="number" inputmode="decimal" value="${v("To Amount")||""}"></div>
   <div id="f_catW"><label>Category</label><select id="f_cat"></select></div>
   <div id="f_subW"><label>Subcategory</label><select id="f_sub"></select></div>
+  ${MODE==="local"?`<div id="f_asW"><label id="f_asl">Invest into</label><select id="f_as"><option value="">None</option>${S.assets.map(a=>`<option value="${a.id}" ${a.id===v("Asset ID")?"selected":""}>${esc(a.name)}</option>`).join("")}<option value="__new">+ New asset…</option></select></div><div id="f_unW"><label>Units (leave blank to estimate from the latest NAV)</label><input id="f_un" type="number" inputmode="decimal" value="${v("Units")||""}"></div>`:""}
   <label>Date</label><input id="f_date" type="date" value="${v("Date")?day(t):new Date().toLocaleDateString("en-CA")}">
   <label>Description</label><input id="f_desc" value="${esc(v("Description"))}">
   <label>Remarks</label><input id="f_rem" value="${esc(v("Remarks"))}">${MODE==="local"?`<label>Receipt photo</label><div id="f_rc"></div><input id="f_rcf" type="file" accept="image/*" style="display:none"><button class="chip" id="f_rcb" type="button">Add photo</button>`:""}
@@ -319,7 +321,7 @@ function txForm(t){
   const accName=()=>$("#f_acc").value.replace(/ \([A-Z]{3}\)$/,"");
   const sync=()=>{
     document.querySelectorAll("[data-ty]").forEach(b=>b.classList.toggle("on",b.dataset.ty===type));
-    $("#f_toW").style.display=type==="Transfer"?"":"none";$("#f_catW").style.display=type==="Transfer"?"none":"";$("#f_subW").style.display=type==="Transfer"?"none":"";
+    $("#f_toW").style.display=type==="Transfer"?"":"none";$("#f_catW").style.display=type==="Transfer"?"none":"";$("#f_subW").style.display=type==="Transfer"?"none":"";const aw=$("#f_asW");if(aw){const on=type==="Investment"||type==="Redemption";aw.style.display=on?"":"none";$("#f_unW").style.display=on?"":"none";$("#f_asl").textContent=type==="Redemption"?"Redeem from":"Invest into"}
     const opts=[...new Set(S.cats.filter(c=>String(g(c,"Type")||"Expense")===type).map(c=>g(c,"Category")))];
     $("#f_cat").innerHTML='<option value=""></option>'+opts.map(o=>`<option ${o===v("Category")?"selected":""}>${esc(o)}</option>`).join("");
     subSync(v("Subcategory"));xSync();
@@ -332,6 +334,9 @@ function txForm(t){
   function xSync(){const a=S.accounts.find(x=>x["Account Name"]===accName()),b=S.accounts.find(x=>x["Account Name"]===$("#f_to").value),on=type==="Transfer"&&a&&b&&String(a.Currency).toUpperCase()!==String(b.Currency).toUpperCase();
     $("#f_xW").style.display=on?"":"none";if(on)$("#f_xl").textContent="Amount received in "+b.Currency+(Number($("#f_amt").value)&&Number($("#f_xa").value)?" (rate "+(Number($("#f_xa").value)/Number($("#f_amt").value)).toFixed(4)+")":"")}
   $("#f_acc").onchange=$("#f_to").onchange=$("#f_xa").oninput=$("#f_amt").oninput=xSync;
+  if($("#f_as"))$("#f_as").onchange=()=>{if($("#f_as").value!=="__new")return;const n=prompt("Name of the new asset");if(!n){$("#f_as").value="";return}
+    const cu=(S.accounts.find(x=>x["Account Name"]===accName())||{}).Currency||"OMR",a={id:gid("AS"),name:n.trim(),type:"Other",cur:String(cu).toUpperCase(),cost:0,value:0};
+    S.assets.push(a);localStorage.setItem("assets",JSON.stringify(S.assets));const o=document.createElement("option");o.value=a.id;o.textContent=a.name;$("#f_as").insertBefore(o,$("#f_as").lastElementChild);$("#f_as").value=a.id};
   const rcId=String(edit?tid(t):gid("TXN"));let rc=null,rcDirty=false;
   if(MODE==="local"){
     const show=()=>{$("#f_rc").innerHTML=rc?`<img src="${rc}" style="width:100%;border-radius:14px;margin:6px 0"><button class="chip" id="f_rcx" type="button">Remove photo</button>`:"";$("#f_rcb").textContent=rc?"Replace photo":"Add photo";if(rc)$("#f_rcx").onclick=()=>{rc=null;rcDirty=true;show()}};
@@ -345,7 +350,7 @@ function txForm(t){
   $("#f_save").onclick=async()=>{
     const body={action:edit?"updateTransaction":"addTransaction",transactionId:edit?tid(t):(MODE==="local"?rcId:undefined),type,account:accName(),
       transferToAccount:type==="Transfer"?$("#f_to").value:"",category:type==="Transfer"?"":$("#f_cat").value,subcategory:type==="Transfer"?"":$("#f_sub").value,
-      amount:Number($("#f_amt").value),toAmount:Number($("#f_xa").value)||undefined,date:$("#f_date").value,description:$("#f_desc").value,remarks:$("#f_rem").value};
+      amount:Number($("#f_amt").value),toAmount:Number($("#f_xa").value)||undefined,assetId:(type==="Investment"||type==="Redemption")&&$("#f_as")?$("#f_as").value:"",units:$("#f_un")?Number($("#f_un").value)||undefined:undefined,date:$("#f_date").value,description:$("#f_desc").value,remarks:$("#f_rem").value};
     $("#f_save").disabled=true;
     try{if(MODE==="local"&&rcDirty){if(rc){await rcPut(rcId,rc);S.rk.add(rcId)}else{await rcDel(rcId);S.rk.delete(rcId)}}if(!edit)localStorage.setItem("last",JSON.stringify({acc:body.account,cat:body.category,sub:body.subcategory,type}));if(!edit){
       const cu=(S.accounts.find(a=>a["Account Name"]===body.account)||{}).Currency||"";
@@ -387,12 +392,13 @@ function recForm(r){
   <label>Category</label><input id="r_cat" list="cl" value="${esc(r.category||"")}"><datalist id="cl">${[...new Set(S.cats.map(c=>g(c,"Category")))].map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
   <label>Subcategory</label><input id="r_sub" value="${esc(r.subcategory||"")}">
   <label>Description</label><input id="r_desc" value="${esc(r.description||"")}">
+  <label>Asset (for investments)</label><select id="r_as"><option value="">None</option>${S.assets.map(a=>`<option value="${a.id}" ${a.id===r.assetId?"selected":""}>${esc(a.name)}</option>`).join("")}</select>
   <label>Repeats</label><select id="r_fr">${opt(["Weekly","Monthly","Yearly"],r.frequency)}</select>
   <label>Next date</label><input id="r_date" type="date" value="${r.nextDate}">
   <label><input type="checkbox" id="r_act" ${r.active?"checked":""} style="width:auto;margin-right:8px">Active</label>
   <p class="err" id="r_err"></p><button class="btn" id="r_save">Save recurring</button>${e?'<button class="btn del" id="r_del">Delete recurring</button>':""}`);
   $("#r_save").onclick=async()=>{try{await post({action:"saveRecurring",recurringId:e?r.recurringId:undefined,type:$("#r_ty").value,account:$("#r_acc").value,
-    transferToAccount:$("#r_to").value,category:$("#r_cat").value,subcategory:$("#r_sub").value,amount:Number($("#r_amt").value),description:$("#r_desc").value,
+    transferToAccount:$("#r_to").value,category:$("#r_cat").value,subcategory:$("#r_sub").value,assetId:$("#r_as").value,amount:Number($("#r_amt").value),description:$("#r_desc").value,
     frequency:$("#r_fr").value,nextDate:$("#r_date").value,active:$("#r_act").checked});close_();await load()}catch(x){$("#r_err").textContent=x.message}};
   if(e)$("#r_del").onclick=async()=>{if(!confirm("Delete this recurring item?"))return;try{await post({action:"deleteRecurring",recurringId:r.recurringId});close_();await load()}catch(x){$("#r_err").textContent=x.message}};
 }
@@ -464,7 +470,7 @@ const L={
     d.accounts.forEach(x=>bal[x["Account Name"]]={accountId:x["Account ID"],accountName:x["Account Name"],accountType:x["Account Type"],currency:String(x.Currency).toUpperCase(),openingBalance:Number(x["Opening Balance"])||0,currentBalance:Number(x["Opening Balance"])||0});
     d.transactions.forEach(t=>{const ty=String(t.Type).toLowerCase(),n=t.Account,to=t["Transfer To Account"],am=Number(t.Amount)||0,cu=String(t.Currency).toUpperCase();
       if(!bal[n]||am<=0||(cu&&cu!==bal[n].currency))return;
-      if(ty==="income")bal[n].currentBalance+=am;else if(ty==="expense"||ty==="investment")bal[n].currentBalance-=am;
+      if(ty==="income"||ty==="redemption")bal[n].currentBalance+=am;else if(ty==="expense"||ty==="investment")bal[n].currentBalance-=am;
       else if(ty==="transfer"){bal[n].currentBalance-=am;if(bal[to]&&(bal[to].currency===cu||t["To Amount"]))bal[to].currentBalance+=Number(t["To Amount"])||am}});
     return{success:true,accounts:d.accounts,categories:d.categories,transactions:d.transactions,balances:Object.values(bal),budgets:d.budgets,recurring:d.recurring,trash:d.trash||[]};
   },
@@ -480,10 +486,10 @@ const L={
         if(!dst)throw new Error("Choose a destination account");
         if(dst===src)throw new Error("Source and destination accounts cannot be the same");
         if(String(dst.Currency).toUpperCase()!==String(src.Currency).toUpperCase()&&!(Number(b.toAmount)>0))throw new Error("Enter the amount received in "+dst.Currency)}
-      const row={"Transaction ID":b.transactionId||gid("TXN"),Date:b.date||new Date().toLocaleDateString("en-CA"),Type:type,Account:src["Account Name"],"Transfer To Account":type==="Transfer"?to:"",Category:b.category||"",Subcategory:b.subcategory||"",Amount:am,Currency:String(src.Currency).toUpperCase(),Description:b.description||"",Remarks:b.remarks||"","To Amount":type==="Transfer"&&Number(b.toAmount)>0?Number(b.toAmount):"","Created At":now,"Updated At":now};
-      if(upd){const i=d.transactions.findIndex(t=>String(t["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Transaction not found");row["Created At"]=d.transactions[i]["Created At"]||now;d.transactions[i]=row}
-      else d.transactions.push(row);break}
-    case"deleteTransaction":{const i=d.transactions.findIndex(t=>String(t["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Transaction not found");const[rm]=d.transactions.splice(i,1);rm._del=Date.now();d.trash.push(rm);break}
+      const row={"Transaction ID":b.transactionId||gid("TXN"),Date:b.date||new Date().toLocaleDateString("en-CA"),Type:type,Account:src["Account Name"],"Transfer To Account":type==="Transfer"?to:"",Category:b.category||"",Subcategory:b.subcategory||"",Amount:am,Currency:String(src.Currency).toUpperCase(),Description:b.description||"",Remarks:b.remarks||"","Asset ID":(type==="Investment"||type==="Redemption")?(b.assetId||""):"",Units:Number(b.units)||"","To Amount":type==="Transfer"&&Number(b.toAmount)>0?Number(b.toAmount):"","Created At":now,"Updated At":now};
+      if(upd){const i=d.transactions.findIndex(t=>String(t["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Transaction not found");row["Created At"]=d.transactions[i]["Created At"]||now;assetApply(d.transactions[i],-1);assetPlan(row);assetApply(row,1);d.transactions[i]=row}
+      else{assetPlan(row);assetApply(row,1);d.transactions.push(row)}break}
+    case"deleteTransaction":{const i=d.transactions.findIndex(t=>String(t["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Transaction not found");const[rm]=d.transactions.splice(i,1);rm._del=Date.now();d.trash.push(rm);assetApply(rm,-1);break}
     case"saveBudget":{const e=d.budgets.find(x=>x.Month===b.month&&x.Category===b.category&&x.Currency===b.currency);
       if(!(Number(b.budgetAmount)>=0))throw new Error("Budget amount must be 0 or greater");
       if(e)e["Budget Amount"]=Number(b.budgetAmount);else d.budgets.push({Month:b.month,Category:b.category,"Budget Amount":Number(b.budgetAmount),Currency:b.currency});break}
@@ -495,21 +501,40 @@ const L={
       d.categories.push({Category:c,Subcategory:sc,Type:b.type});break}
     case"saveRecurring":{const a=acc(b.account);if(!a)throw new Error("Choose an account");
       if(!(Number(b.amount)>0))throw new Error("Amount must be greater than zero");if(!b.nextDate)throw new Error("Choose a valid next date");
-      const r={recurringId:b.recurringId||gid("REC"),type:b.type,account:a["Account Name"],transferToAccount:b.transferToAccount||"",category:b.category||"",subcategory:b.subcategory||"",amount:Number(b.amount),currency:String(a.Currency).toUpperCase(),description:b.description||"",frequency:b.frequency,nextDate:b.nextDate,active:b.active!==false,lastGeneratedDate:""};
+      const r={recurringId:b.recurringId||gid("REC"),assetId:b.assetId||"",type:b.type,account:a["Account Name"],transferToAccount:b.transferToAccount||"",category:b.category||"",subcategory:b.subcategory||"",amount:Number(b.amount),currency:String(a.Currency).toUpperCase(),description:b.description||"",frequency:b.frequency,nextDate:b.nextDate,active:b.active!==false,lastGeneratedDate:""};
       const i=d.recurring.findIndex(x=>x.recurringId===r.recurringId);if(i>=0){r.lastGeneratedDate=d.recurring[i].lastGeneratedDate;d.recurring[i]=r}else d.recurring.push(r);break}
     case"deleteRecurring":d.recurring=d.recurring.filter(x=>x.recurringId!==b.recurringId);break;
     case"processRecurring":{let n=0;const td=new Date().toLocaleDateString("en-CA");
       d.recurring.forEach(r=>{if(!r.active)return;let k=0;
         while(r.nextDate&&r.nextDate<=td&&k++<240){
-          if(r.nextDate!==r.lastGeneratedDate){d.transactions.push({"Transaction ID":gid("TXN"),Date:r.nextDate,Type:r.type,Account:r.account,"Transfer To Account":r.transferToAccount,Category:r.category,Subcategory:r.subcategory,Amount:r.amount,Currency:r.currency,Description:r.description+" (Recurring)",Remarks:"Generated from recurring "+r.recurringId,"Created At":now,"Updated At":now});n++;r.lastGeneratedDate=r.nextDate}
+          if(r.nextDate!==r.lastGeneratedDate){pushTx(d,{"Transaction ID":gid("TXN"),"Asset ID":r.assetId||"",Date:r.nextDate,Type:r.type,Account:r.account,"Transfer To Account":r.transferToAccount,Category:r.category,Subcategory:r.subcategory,Amount:r.amount,Currency:r.currency,Description:r.description+" (Recurring)",Remarks:"Generated from recurring "+r.recurringId,"Created At":now,"Updated At":now});n++;r.lastGeneratedDate=r.nextDate}
           r.nextDate=nextDate(r.nextDate,r.frequency)}});
       DBL.save(d);return{success:true,created:n,message:n+" recurring transaction(s) created"}}
-    case"restoreTransaction":{const i=d.trash.findIndex(x=>String(x["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Not found");const[t]=d.trash.splice(i,1);delete t._del;d.transactions.push(t);break}
+    case"restoreTransaction":{const i=d.trash.findIndex(x=>String(x["Transaction ID"])===String(b.transactionId));if(i<0)throw new Error("Not found");const[t]=d.trash.splice(i,1);delete t._del;d.transactions.push(t);assetApply(t,1);break}
     case"setAccountMeta":{const a=acc(b.account);if(!a)throw new Error("Account not found");a["Credit Limit"]=Number(b.limit)||"";a["Statement Day"]=Number(b.stmt)||"";a["Due Day"]=Number(b.due)||"";break}
     default:throw new Error("Unknown action: "+b.action)}
     DBL.save(d);return{success:true};
   }
 };
+const pushTx=(d,row)=>{assetPlan(row);assetApply(row,1);d.transactions.push(row)};
+function assetPlan(t){
+  ["Asset Cost","Asset Units","Asset Value","Units Est"].forEach(k=>delete t[k]);
+  const a=S.assets.find(x=>x.id===t["Asset ID"]),sg=t.Type==="Investment"?1:t.Type==="Redemption"?-1:0;
+  if(!a||!sg){if(!sg)t["Asset ID"]="";return}
+  const am=Number(t.Amount)||0;let u=Number(t.Units)||0;const est=!u;
+  if(est&&a.code&&a.nav)u=am/a.nav;
+  if(sg<0)u=Math.min(u,a.units||0);
+  u=+u.toFixed(4);t.Units=u||"";t["Units Est"]=est&&u>0;
+  t["Asset Units"]=sg*u;t["Asset Value"]=sg*am;
+  t["Asset Cost"]=sg>0?am:-Math.min(a.cost||0,(a.units>0&&u>0)?a.cost*u/a.units:(a.value>0?a.cost*Math.min(1,am/a.value):0));
+}
+function assetApply(t,dir){
+  const a=t&&S.assets.find(x=>x.id===t["Asset ID"]);if(!a)return;
+  a.cost=+Math.max(0,(a.cost||0)+dir*(t["Asset Cost"]||0)).toFixed(2);
+  a.units=+Math.max(0,(a.units||0)+dir*(t["Asset Units"]||0)).toFixed(4);
+  a.value=a.code&&a.nav?+(a.units*a.nav).toFixed(2):+Math.max(0,(a.value||0)+dir*(t["Asset Value"]||0)).toFixed(2);
+  localStorage.setItem("assets",JSON.stringify(S.assets));
+}
 /*LOCAL-END*/
 async function shareFile(f){try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else{const a=document.createElement("a");a.href=window.URL.createObjectURL(f);a.download=f.name;a.click()}}catch(_){}}
 function uiMode(){
@@ -542,7 +567,7 @@ function networth(cc){
   const op=S.bal.filter(b=>String(b.currency).toUpperCase()===cc).reduce((x,b)=>x+Number(b.openingBalance||0),0);
   let[y,mo]=(S.hm||new Date().toISOString().slice(0,7)).split("-").map(Number);const ms=[];
   for(let i=0;i<12;i++){ms.unshift(y+"-"+String(mo).padStart(2,"0"));mo--;if(!mo){mo=12;y--}}
-  const f=t=>({Income:1,Expense:-1,Investment:-1,Transfer:t["To Amount"]?-1:0}[g(t,"Type")]||0)*Number(g(t,"Amount")),tc=S.tx.filter(t=>g(t,"Currency")===cc),inc=S.tx.filter(t=>t["To Amount"]&&String((S.bal.find(b=>b.accountName===t["Transfer To Account"])||{}).currency).toUpperCase()===cc);
+  const f=t=>({Income:1,Expense:-1,Investment:-1,Redemption:1,Transfer:t["To Amount"]?-1:0}[g(t,"Type")]||0)*Number(g(t,"Amount")),tc=S.tx.filter(t=>g(t,"Currency")===cc),inc=S.tx.filter(t=>t["To Amount"]&&String((S.bal.find(b=>b.accountName===t["Transfer To Account"])||{}).currency).toUpperCase()===cc);
   return ms.map(k=>({k,v:op+tc.filter(t=>day(t).slice(0,7)<=k).reduce((x,t)=>x+f(t),0)+inc.filter(t=>day(t).slice(0,7)<=k).reduce((x,t)=>x+Number(t["To Amount"]),0)}));
 }
 function line(pts,cc){
@@ -709,7 +734,7 @@ function sfChips(){$("#sfc").innerHTML=SF.map((x,i)=>`<button class="chip" data-
 function applySF(i){const x=SF[i].f,f=S.f;["type","acct","cur","cat"].forEach(k=>f[k]=new Set(x[k]));f.atype=new Set();f.min=f.max="";f.rel=x.rel;[f.from,f.to]=x.rel?relDates(x.rel):[x.from,x.to];activity()}
 
 /* account detail, reconcile, credit cards */
-const eff=(t,n)=>{const ty=g(t,"Type"),a=Number(g(t,"Amount"));if(ty==="Transfer")return(g(t,"Account")===n?-a:0)+(t["Transfer To Account"]===n?(Number(t["To Amount"])||a):0);return g(t,"Account")===n?({Income:1,Expense:-1,Investment:-1}[ty]||0)*a:0};
+const eff=(t,n)=>{const ty=g(t,"Type"),a=Number(g(t,"Amount"));if(ty==="Transfer")return(g(t,"Account")===n?-a:0)+(t["Transfer To Account"]===n?(Number(t["To Amount"])||a):0);return g(t,"Account")===n?({Income:1,Expense:-1,Investment:-1,Redemption:1}[ty]||0)*a:0};
 function accDetail(n){
   const b=S.bal.find(x=>x.accountName===n),a=S.accounts.find(x=>x["Account Name"]===n)||{};if(!b)return;
   const txs=S.tx.filter(t=>g(t,"Account")===n||t["Transfer To Account"]===n),ms=[];let[y,mo]=new Date().toISOString().slice(0,7).split("-").map(Number);
@@ -726,18 +751,32 @@ function accDetail(n){
 
 /* assets, trash, calendar file, forecast, year review */
 function assetList(){
-  $("#assetlist").innerHTML=S.assets.length?S.assets.map(a=>`<div class="acc row" data-as="${a.id}"><span>${esc(a.name)}<br><small>${esc(a.type)}</small></span><b>${money(a.value,a.cur)}</b></div>`).join(""):'<div class="msg">No assets yet</div>';
+  $("#assetlist").innerHTML=S.assets.length?S.assets.map(a=>`<div class="acc row" data-as="${a.id}"><span>${esc(a.name)}<br><small>${esc(a.type)}${a.units?" · "+a.units+" units":""}</small></span><b>${money(a.value,a.cur)}</b></div>`).join(""):'<div class="msg">No assets yet</div>';
   document.querySelectorAll("[data-as]").forEach(el=>el.onclick=()=>assetForm(S.assets.find(z=>z.id===el.dataset.as)));
 }
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function navOf(code){
-  const r=await fetch("https://api.mfapi.in/mf/"+encodeURIComponent(code)+"/latest");if(!r.ok)throw new Error("status "+r.status);
-  const j=await r.json(),d=j.data&&j.data[0];if(!d||!(Number(d.nav)>0))throw new Error("no NAV returned");return{nav:Number(d.nav),date:d.date};
+  let err;
+  for(const tail of ["/latest",""]){
+    for(let t=0;t<3;t++){
+      try{const r=await fetch("https://api.mfapi.in/mf/"+encodeURIComponent(code)+tail);
+        if(r.status===429||r.status>=500){err=new Error("HTTP "+r.status+" (service busy)");await sleep(1500*(t+1));continue}
+        if(!r.ok)throw new Error("HTTP "+r.status);
+        const j=await r.json(),d=j.data&&j.data[0];if(!d||!(Number(d.nav)>0))throw new Error("no NAV in the response");return{nav:Number(d.nav),date:d.date}}
+      catch(e){err=e;break}
+    }
+  }
+  if(err instanceof TypeError&&URL_&&KEY){ // blocked in the browser: ask your own Google script to fetch it
+    const u=new window.URL(URL_);u.searchParams.set("action","nav");u.searchParams.set("code",code);u.searchParams.set("key",KEY);
+    const j=await(await fetch(u)).json();if(!j.success)throw new Error(j.error||"script could not fetch it");return{nav:j.nav,date:j.date};
+  }
+  throw err;
 }
 async function refreshPrices(quiet){
   const l=S.assets.filter(a=>a.code&&a.units>0);
   if(!l.length){if(!quiet)alert("Add a Mutual fund asset with a fund and units first.");return}
   $("#pxmsg").textContent="Updating NAVs…";let ok=0;const bad=[];
-  for(const a of l){try{const r=await navOf(a.code);a.nav=r.nav;a.navDate=r.date;a.value=+(a.units*r.nav).toFixed(2);ok++}catch(e){bad.push(a.name)}}
+  for(const [i,a] of l.entries()){if(i)await sleep(700);try{const r=await navOf(a.code);a.nav=r.nav;a.navDate=r.date;a.value=+(a.units*r.nav).toFixed(2);ok++}catch(e){bad.push(a.name+" ("+e.message+")")}}
   if(ok){localStorage.setItem("assets",JSON.stringify(S.assets));localStorage.setItem("pxAt",String(Date.now()))}
   $("#pxmsg").textContent=ok?"NAVs updated "+new Date().toLocaleString()+(bad.length?". Failed: "+bad.join(", "):""):"Could not update. Check your internet connection.";
   if(ok)render();if(!quiet&&bad.length)alert("Could not update: "+bad.join(", ")+". Check your connection or the fund.");
@@ -763,7 +802,7 @@ function assetForm(x){
     const u=Number($("#s_u").value)||0,use=$("#s_t").value==="Mutual fund"&&code&&u>0;if(!use&&$("#s_v").value==="")return;
     const o={id:e?x.id:gid("AS"),name:$("#s_n").value.trim(),type:$("#s_t").value,cur:$("#s_c").value,cost:Number($("#s_i").value)||0,value:Number($("#s_v").value)||0,code:use?code:"",schemeName:use?sn:"",units:use?u:0,nav:x.code===code?x.nav||0:0,navDate:x.code===code?x.navDate||"":""};
     if(!o.name)return;
-    if(use){try{const r=await navOf(code);o.nav=r.nav;o.navDate=r.date;o.value=+(u*r.nav).toFixed(2);localStorage.setItem("pxAt",String(Date.now()))}catch(err){alert("Could not fetch the latest NAV now, so it was saved with the value you entered. Use Refresh when you are online.")}}
+    if(use){try{const r=await navOf(code);o.nav=r.nav;o.navDate=r.date;o.value=+(u*r.nav).toFixed(2);localStorage.setItem("pxAt",String(Date.now()))}catch(err){alert("Could not fetch the latest NAV ("+err.message+"), so it was saved with the value you entered. Use Refresh when you are online.")}}
     e?Object.assign(x,o):S.assets.push(o);sv()};
   if(e)$("#s_x").onclick=()=>{S.assets=S.assets.filter(z=>z!==x);sv()};
 }
@@ -782,7 +821,7 @@ function forecastHtml(cc){
   const ev=occ(iso(new Date(t0.getTime()+864e5)),iso(new Date(t0.getTime()+90*864e5))).filter(x=>x.k!=="cc"&&x.r.currency===cc),since=iso(new Date(t0.getTime()-60*864e5));
   const vs=S.tx.filter(t=>g(t,"Currency")===cc&&g(t,"Type")==="Expense"&&day(t)>=since&&!/Recurring/.test(g(t,"Description"))).reduce((x,t)=>x+Number(g(t,"Amount")),0)/60;
   let b=bal,low={v:bal,d:iso(t0)};const pts=[{k:iso(t0).slice(5),v:b}],at={};
-  for(let d=1;d<=90;d++){const ds=iso(new Date(t0.getTime()+d*864e5));b-=vs;ev.filter(x=>x.d===ds).forEach(x=>{b+=({Income:1,Expense:-1,Investment:-1}[x.r.type]||0)*Number(x.r.amount)});
+  for(let d=1;d<=90;d++){const ds=iso(new Date(t0.getTime()+d*864e5));b-=vs;ev.filter(x=>x.d===ds).forEach(x=>{b+=({Income:1,Expense:-1,Investment:-1,Redemption:1}[x.r.type]||0)*Number(x.r.amount)});
     if(b<low.v)low={v:b,d:ds};if(d%30===0)at[d]=b;if(d%3===0)pts.push({k:ds.slice(5),v:b})}
   return line(pts,cc)+`<div class="note">In 30 days ${money(at[30],cc)} · 60 days ${money(at[60],cc)} · 90 days ${money(at[90],cc)}</div><div class="note">Lowest point: ${money(low.v,cc)} on ${low.d}</div><div class="note" style="color:var(--mute)">Assumes your 60-day average everyday spending of ${money(vs,cc)} a day, plus recurring items and loan EMIs.</div>`;
 }
@@ -815,7 +854,7 @@ async function report(){
   x.fillStyle=V("--bg");x.fillRect(0,0,1080,1400);x.fillStyle=V("--ink");F(800,64);x.fillText("Money report",70,120);F(400,36);x.fillStyle=V("--mute");x.fillText(m,70,175);
   let y=250;if(!cs.length){F(400,36);x.fillText("No transactions this month",70,y)}
   cs.forEach(cu=>{
-    const ls=S.tx.filter(t=>g(t,"Currency")===cu&&day(t).slice(0,7)===m),sm=ty=>ls.filter(t=>g(t,"Type")===ty).reduce((a,t)=>a+Number(g(t,"Amount")),0),i=sm("Income"),e=sm("Expense"),v=sm("Investment");
+    const ls=S.tx.filter(t=>g(t,"Currency")===cu&&day(t).slice(0,7)===m),sm=ty=>ls.filter(t=>g(t,"Type")===ty).reduce((a,t)=>a+Number(g(t,"Amount")),0),i=sm("Income"),e=sm("Expense"),v=sm("Investment")-sm("Redemption");
     x.fillStyle=V("--card");x.beginPath();x.roundRect(60,y,960,170,36);x.fill();
     x.fillStyle=V("--mute");F(400,32);x.fillText(cu+" net flow",100,y+55);x.fillStyle=V("--ink");F(800,64);x.fillText(money(i-e-v,""),100,y+125);
     F(400,30);x.fillStyle=V("--in");x.fillText("In "+money(i,""),600,y+60);x.fillStyle=V("--out");x.fillText("Out "+money(e,""),600,y+115);y+=210;
