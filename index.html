@@ -101,6 +101,27 @@ nav .plus{width:54px;height:54px;border-radius:27px;background:var(--acc);color:
     <button class="btn" id="px" style="margin-top:8px;background:var(--bg);color:var(--ink);border:1px solid var(--line)">Refresh mutual fund NAVs</button><p class="cur" style="margin:4px 8px" id="pxmsg"></p>
     <h2>Credit cards</h2><div class="card" id="cclist"></div>
     <h2>Loans and EMIs</h2><div class="card" id="loanlist"></div><button class="btn" id="newloan">New loan</button>
+    <h2>IOUs</h2><div class="card" id="ioulist"></div><button class="btn" id="newiou">New IOU</button></section>
+  <section id="more">
+    <div class="card"><label>Where is your data stored?</label>
+    <div class="seg" style="grid-template-columns:1fr 1fr"><button id="m_sheet">Google Sheet</button><button id="m_local">This iPhone only</button></div>
+    <div id="localtools" style="display:none">
+      <button class="btn" id="bk">Back up to Files</button>
+      <button class="btn" id="rs" style="margin-top:8px">Restore from backup file</button>
+      <button class="btn" id="imp" style="margin-top:8px">Import from my Google Sheet</button>
+      <input type="file" id="rsf" accept=".json,.txt,application/json,text/plain" style="display:none">
+      <p class="cur" id="lmsg"></p></div></div>
+    <div class="card"><label>Web app URL</label><input id="url" placeholder="https://script.google.com/macros/s/…/exec" autocapitalize="off" autocorrect="off">
+    <label>Secret key</label><input id="key" type="password" autocapitalize="off" autocorrect="off">
+    <button class="btn" id="saveurl">Save and connect</button><p class="cur" id="conn"></p></div>
+    <h2>Appearance</h2>
+    <div class="card"><label>Theme</label><div class="seg" style="grid-template-columns:repeat(3,1fr)"><button data-th="auto">Auto</button><button data-th="dark">Dark</button><button data-th="light">Light</button></div>
+    <label>Accent colour</label><div class="chips">
+      <button class="chip" data-ac="mint"><i class="dot" style="background:#19b389"></i>Mint</button><button class="chip" data-ac="violet"><i class="dot" style="background:#8b6cf0"></i>Violet</button>
+      <button class="chip" data-ac="amber"><i class="dot" style="background:#e09a2b"></i>Amber</button><button class="chip" data-ac="rose"><i class="dot" style="background:#e5637d"></i>Rose</button>
+      <button class="chip" data-ac="sky"><i class="dot" style="background:#3d9be0"></i>Sky</button></div></div>
+    <h2>Security</h2><div class="card"><button class="btn" id="pinbtn">Set passcode</button><button class="btn del" id="pinoff" style="display:none">Remove passcode</button>
+    <p class="cur">Locks the app when it opens and after 30 seconds away. If you forget it, the only way back in is deleting the Home Screen app and restoring a backup.</p></div>
     <h2>Recently deleted</h2><div class="card" id="trashlist"></div><p class="cur" style="margin:4px 8px">Deleted transactions are kept for 30 days.</p>
     <h2>Preferences</h2>
     <div class="card"><label>Exchange rate: 1 OMR = ? INR</label><input id="rate" type="number" inputmode="decimal" placeholder="e.g. 215"><label><input type="checkbox" id="autodue" style="width:auto;margin-right:8px">Record due recurring items and loan EMIs automatically when I open the app</label></div>
